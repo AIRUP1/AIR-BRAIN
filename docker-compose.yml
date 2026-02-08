@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # MLflow Model Registry
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.5.0
+    ports:
+      - "5000:5000"
+    environment:
+      - BACKEND_URI=sqlite:///mlflow.db
+      - DEFAULT_ARTIFACT_ROOT=./mlruns
+    volumes:
+      - ./mlruns:/mlruns
+      - ./mlflow.db:/mlflow.db
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns
+
+  # Model Serving API (FastAPI)
+  model-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MODEL_NAME=my_model
+      - MODEL_VERSION=latest
+    depends_on:
+      - mlflow
+    volumes:
+      - ./models:/app/models
+
+  # Monitoring (Prometheus)
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  # Visualization (Grafana)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  # Feature Store (Feast - optional)
+  # feast:
+  #   image: feastdev/feast-server:latest
+  #   ports:
+  #     - "6566:6566"
+  #   environment:
+  #     - FEAST_USAGE=False
+
+volumes:
+  prometheus-data:
+  grafana-data:
+

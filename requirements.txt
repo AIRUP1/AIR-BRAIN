@@ -1,3 +1,61 @@
+# AI Engineering Pipeline Requirements
+
+# Core Data Science
 pandas>=2.0.0
-openpyxl>=3.1.0
-tk
+numpy>=1.24.0
+scikit-learn>=1.3.0
+
+# Model Training & Evaluation
+xgboost>=2.0.0
+lightgbm>=4.0.0
+catboost>=1.2.0
+
+# Deep Learning (optional)
+# tensorflow>=2.13.0
+# torch>=2.0.0
+# transformers>=4.30.0
+
+# Model Management
+mlflow>=2.5.0
+# wandb>=0.15.0
+
+# Data Validation
+great-expectations>=0.18.0
+pandera>=0.15.0
+
+# Feature Store
+# feast>=0.36.0
+
+# Pipeline Orchestration
+# apache-airflow>=2.7.0
+# prefect>=2.10.0
+# dagster>=1.3.0
+
+# Model Serving
+# fastapi>=0.100.0
+# uvicorn>=0.23.0
+# seldon-core>=1.15.0
+
+# Monitoring & Observability
+# prometheus-client>=0.17.0
+# opentelemetry-api>=1.20.0
+
+# Distributed Computing
+# ray>=2.5.0
+# dask>=2023.8.0
+# pyspark>=3.4.0
+
+# Utilities
+python-dotenv>=1.0.0
+pyyaml>=6.0
+tqdm>=4.65.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Code Quality
+black>=23.7.0
+flake8>=6.1.0
+mypy>=1.5.0
+
