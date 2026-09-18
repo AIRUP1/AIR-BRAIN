@@ -23,6 +23,14 @@ describe("BrandForge generation contracts", () => {
     expect(assetFallback("logo", kit, 2).concepts).toHaveLength(3);
   });
 
+  it("returns previewable website and three-email payloads", () => {
+    const website = assetFallback("website", kit, 3);
+    const email = assetFallback("email", kit, 2);
+    expect(website.pages[0].sections).toHaveLength(3);
+    expect(email.templates).toHaveLength(3);
+    expect(email.templates.map((template) => template.name)).toEqual(["Welcome", "Promo", "Re-engage"]);
+  });
+
   it("separates TTS direction from spoken copy with a colon", () => {
     const prompt = makeTtsPrompt(kit);
     expect(prompt).toContain(":");

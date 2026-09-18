@@ -6,6 +6,7 @@ import {
   Palette, ScanText, Sparkles, WandSparkles, Zap,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import AssetPreview from "@/components/AssetPreview";
 
 type Option = {
   id: number; positioning: string; target_customer: string; core_offer: string;
@@ -56,6 +57,7 @@ export default function Home() {
   const [photo, setPhoto] = useState<PhotoResult | null>(null);
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [ttsPrompt, setTtsPrompt] = useState("");
+  const [previewAsset, setPreviewAsset] = useState<Asset | null>(null);
 
   const strategy = trpc.studio.generateStrategy.useMutation({
     onSuccess: (data) => { setOptions(data.options as Option[]); setProjectId(data.projectId); setSelected(2); setStage("02"); toast.success(`Three ${data.model} strategy directions are ready.`); },
@@ -168,7 +170,7 @@ export default function Home() {
           <div className="variant-strip"><span>LAYOUT VARIANT</span>{[1, 2, 3].map((variant) => <button key={variant} className={assetVariant === variant ? "active" : ""} onClick={() => setAssetVariant(variant)}>0{variant} / {variant === 1 ? "CINEMA SPLIT" : variant === 2 ? "SIGNAL STACK" : "PROOF GRID"}</button>)}</div>
           <div className="asset-grid">{assetLabels.map((asset, index) => {
             const generated = assets.find((item) => item.type === asset.type); const Icon = asset.icon;
-            return <div className="asset-card" key={asset.type}><div className="asset-card-head"><span>0{index + 1}</span><Icon size={18} /></div><h3>{asset.name}</h3><p>{asset.export}</p><div className="asset-card-bottom">{generated ? <><span className="ready"><Check size={13} /> READY</span><button onClick={() => downloadFile(`${kit.name.toLowerCase().replace(/\s+/g, "-")}-${asset.type}.json`, JSON.stringify(generated.payload, null, 2))}><Download size={15} /> Export</button></> : <button className="generate-link" onClick={() => generateAsset(asset.type as "deck" | "website" | "email" | "pos" | "logo")} disabled={assetGen.isPending || !brandKitId}><Sparkles size={14} /> Generate <ArrowUpRight size={14} /></button>}</div></div>;
+            return <div className="asset-card" key={asset.type}><div className="asset-card-head"><span>0{index + 1}</span><Icon size={18} /></div><h3>{asset.name}</h3><p>{asset.export}</p><div className="asset-card-bottom">{generated ? <><span className="ready"><Check size={13} /> READY</span><div className="asset-ready-actions">{(asset.type === "website" || asset.type === "email") && <button className="preview-link" onClick={() => setPreviewAsset(generated)}><Eye size={14} /> Preview</button>}<button onClick={() => downloadFile(`${kit.name.toLowerCase().replace(/\s+/g, "-")}-${asset.type}.json`, JSON.stringify(generated.payload, null, 2))}><Download size={15} /> Export</button></div></> : <button className="generate-link" onClick={() => generateAsset(asset.type as "deck" | "website" | "email" | "pos" | "logo")} disabled={assetGen.isPending || !brandKitId}><Sparkles size={14} /> Generate <ArrowUpRight size={14} /></button>}</div></div>;
           })}</div>
         </section>
 
@@ -187,6 +189,7 @@ export default function Home() {
 
         <footer className="export-footer"><div><span>05</span><small>EXPORT LAYER</small><h2>Production, without the drift.</h2></div><p>Deck and email payloads export as structured content. Logos export as self-contained SVG. Site blocks are ready to implement or hand off to deployment.</p><button onClick={() => { assets.length ? downloadFile(`${kit.name.toLowerCase().replace(/\s+/g, "-")}-production-package.json`, JSON.stringify({ brandKit: kit, assets }, null, 2)) : toast.message("Generate an asset first."); }}><Download size={16} /> Download production package</button></footer>
       </section>
+      {previewAsset && <AssetPreview asset={previewAsset} kit={kit} onClose={() => setPreviewAsset(null)} />}
     </main>
   );
 }
