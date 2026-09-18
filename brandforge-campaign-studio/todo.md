@@ -10,8 +10,8 @@
 - [x] Persist financial models, video briefs, animation plans, and social packs through the full-stack API.
 - [x] Apply the production-asset database enum migration.
 - [x] Verify a live locked-Brand-Kit workflow, including economics output, video plan, TTS direction, ManimCE export, and three social drafts.
-- [x] Run TypeScript checking, unit tests, production build, screenshot review, and browser-console review.
+- [x] Run TypeScript checking, unit tests, production build, desktop screenshot review, mobile screenshot review, and browser-console review.
 
 ## Deferred Release Backlog
 
-The following intentionally remain outside the present integration release: an explicit approved-render queue for final audio, video, and Manim outputs; social account selection and scheduling; and data-backed forecast-versus-actual performance imports. These require destination-specific credentials or an approved external production action and therefore are not silently enabled in the public app.
+The present integration intentionally stops before an approved-render queue for final audio, video, and Manim outputs, social account selection and scheduling, and data-backed forecast-versus-actual performance imports. These additions require destination-specific credentials or an approved external production action and therefore are not silently enabled in the public app.
