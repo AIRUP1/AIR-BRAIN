@@ -225,6 +225,10 @@ Feel free to extend this pipeline with:
 - Advanced monitoring
 - Additional scaling strategies
 
+## 📞 Revenue Enablement
+
+The CRM-ready, TTS-friendly cold-call playbook for AIR Agents is available at [docs/AIR_AGENT_COLD_CALL_PLAYBOOK.md](docs/AIR_AGENT_COLD_CALL_PLAYBOOK.md). It covers accurate product positioning, permission-based call flows, the DELUXE ENABLE objection process, compliant opt-outs, CRM logging, and TTS-ready examples.
+
 ## 📝 License
 
 This is an educational example. Feel free to use and modify as needed.
