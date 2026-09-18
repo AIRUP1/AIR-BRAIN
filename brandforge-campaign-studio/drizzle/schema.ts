@@ -1,0 +1,87 @@
+import { int, json, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+
+/** Core identity table supplied by the web app template. */
+export const users = mysqlTable("users", {
+  id: int("id").autoincrement().primaryKey(),
+  openId: varchar("openId", { length: 64 }).notNull().unique(),
+  name: text("name"),
+  email: varchar("email", { length: 320 }),
+  loginMethod: varchar("loginMethod", { length: 64 }),
+  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+});
+
+/** A single campaign workspace created from a niche intake. */
+export const projects = mysqlTable("projects", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),
+  name: varchar("name", { length: 160 }).notNull(),
+  niche: varchar("niche", { length: 240 }).notNull(),
+  market: varchar("market", { length: 240 }).notNull(),
+  budget: varchar("budget", { length: 80 }),
+  audience: varchar("audience", { length: 320 }),
+  tone: varchar("tone", { length: 120 }),
+  status: mysqlEnum("status", ["draft", "brand_locked", "producing", "ready"]).default("draft").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** The three strategic directions returned for every project. */
+export const nicheOptions = mysqlTable("niche_options", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  optionNumber: int("optionNumber").notNull(),
+  positioning: text("positioning").notNull(),
+  targetCustomer: text("targetCustomer").notNull(),
+  coreOffer: text("coreOffer").notNull(),
+  payload: json("payload").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+/** Immutable brand system that each downstream asset must consume. */
+export const brandKits = mysqlTable("brand_kits", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  strategyOptionId: int("strategyOptionId"),
+  name: varchar("name", { length: 160 }).notNull(),
+  palette: json("palette").notNull(),
+  fonts: json("fonts").notNull(),
+  voice: text("voice").notNull(),
+  tagline: text("tagline").notNull(),
+  offer: text("offer").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** Generated, structured content assets. Binary media is stored in object storage and referenced by URL. */
+export const assets = mysqlTable("assets", {
+  id: int("id").autoincrement().primaryKey(),
+  brandKitId: int("brandKitId").notNull(),
+  type: mysqlEnum("type", ["deck", "website", "email", "pos", "logo", "visual", "voice"]).notNull(),
+  variant: int("variant").notNull(),
+  schemaVersion: varchar("schemaVersion", { length: 32 }).notNull().default("1.0"),
+  provider: varchar("provider", { length: 80 }).notNull().default("claude"),
+  status: mysqlEnum("status", ["queued", "ready", "failed"]).default("queued").notNull(),
+  payload: json("payload").notNull(),
+  previewUrl: text("previewUrl"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** Append-only audit trail for edits and regenerated asset variants. */
+export const assetVersions = mysqlTable("asset_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  assetId: int("assetId").notNull(),
+  version: int("version").notNull(),
+  note: varchar("note", { length: 240 }),
+  payload: json("payload").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
+export type Project = typeof projects.$inferSelect;
+export type BrandKitRecord = typeof brandKits.$inferSelect;
+export type AssetRecord = typeof assets.$inferSelect;
