@@ -1,20 +1,17 @@
 # BrandForge Campaign Studio — Feature Tracker
 
-## Completed
+## Completed Capabilities
 
-- Niche intake, three-route strategy generation, and Brand Kit locking.
-- Structured deck, website, email, POS, and logo asset generation with three layout variants.
-- Visual generation routing, photo recognition/OCR, strict-preservation upscaling, and TTS prompt direction.
-- Interactive website and email preview workspace with device switching, page/template selection, and simulated CTA interactions.
+- [x] Build niche intake, three-route strategy engine, and Brand Kit lock.
+- [x] Generate deck, website, email, POS, logo, visual, and TTS prompt assets.
+- [x] Add image recognition, OCR, and upscale workflow.
+- [x] Add website and email preview modes with device controls and template switching.
+- [x] Add a brand-locked production center for campaign economics, AI-video planning, ManimCE script export, compliant TTS directions, and social distribution packs.
+- [x] Persist financial models, video briefs, animation plans, and social packs through the full-stack API.
+- [x] Apply the production-asset database enum migration.
+- [x] Verify a live locked-Brand-Kit workflow, including economics output, video plan, TTS direction, ManimCE export, and three social drafts.
+- [x] Run TypeScript checking, unit tests, production build, screenshot review, and browser-console review.
 
-## Validation
+## Deferred Release Backlog
 
-- [x] Type-check the preview workspace.
-- [x] Run unit tests and a production build.
-- [x] Verify generated website and email previews in the live UI, including template switching and device controls.
-
-## Backlog
-
-- Render export-ready HTML/MJML and true PPTX/PDF files.
-- Add shareable preview links and external review comments.
-- Add saved preview preferences per user and project.
+The following intentionally remain outside the present integration release: an explicit approved-render queue for final audio, video, and Manim outputs; social account selection and scheduling; and data-backed forecast-versus-actual performance imports. These require destination-specific credentials or an approved external production action and therefore are not silently enabled in the public app.

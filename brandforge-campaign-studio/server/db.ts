@@ -100,7 +100,7 @@ export async function lockBrandKit(input: {
 
 export async function saveAsset(input: {
   brandKitId: number;
-  type: "deck" | "website" | "email" | "pos" | "logo" | "visual" | "voice";
+  type: "deck" | "website" | "email" | "pos" | "logo" | "visual" | "voice" | "finance" | "video" | "animation" | "social";
   variant: number;
   provider: string;
   payload: Record<string, unknown>;

@@ -15,6 +15,13 @@
       "when": 1789736624488,
       "tag": "0001_pink_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1789755334288,
+      "tag": "0002_salty_rocket_raccoon",
+      "breakpoints": true
     }
   ]
 }

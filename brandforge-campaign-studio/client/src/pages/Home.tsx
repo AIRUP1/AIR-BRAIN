@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import AssetPreview from "@/components/AssetPreview";
+import ProductionCommandCenter from "@/components/ProductionCommandCenter";
 
 type Option = {
   id: number; positioning: string; target_customer: string; core_offer: string;
@@ -186,6 +187,8 @@ export default function Home() {
 
         <section className="voice-section"><div className="voice-art"><div className="voice-wave wave-one" /><div className="voice-wave wave-two" /><div className="voice-wave wave-three" /><Mic2 size={29} /></div><div><small>VOICE / TTS PROMPTER</small><h2>Direct the delivery, not just the words.</h2><p>BrandForge creates a ready-to-speak direction that separates voice performance from the spoken script.</p></div><button className="outline-action dark" onClick={getVoicePrompt} disabled={voice.isFetching}><AudioLines size={16} /> {voice.isFetching ? "Writing direction..." : "Generate TTS direction"}</button></section>
         {ttsPrompt && <section className="tts-result"><span>READY TO COPY</span><p>{ttsPrompt}</p><button onClick={() => { navigator.clipboard?.writeText(ttsPrompt); toast.success("Copied."); }}><Copy size={15} /> Copy</button></section>}
+
+        <ProductionCommandCenter kit={kit} brandKitId={brandKitId} />
 
         <footer className="export-footer"><div><span>05</span><small>EXPORT LAYER</small><h2>Production, without the drift.</h2></div><p>Deck and email payloads export as structured content. Logos export as self-contained SVG. Site blocks are ready to implement or hand off to deployment.</p><button onClick={() => { assets.length ? downloadFile(`${kit.name.toLowerCase().replace(/\s+/g, "-")}-production-package.json`, JSON.stringify({ brandKit: kit, assets }, null, 2)) : toast.message("Generate an asset first."); }}><Download size={16} /> Download production package</button></footer>
       </section>

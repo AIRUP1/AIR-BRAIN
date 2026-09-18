@@ -14,6 +14,11 @@ export type PhotoAnalysis = {
   summary: string; scene: string; objects: string[]; people: string[]; mood: string;
   visual_quality: string; extracted_text: string[]; marketing_opportunities: string[]; suggested_asset: string;
 };
+export type CampaignEconomicsInput = { monthlyBudget: number; averageOrderValue: number; grossMarginPct: number; leadToBookingPct: number; costPerLead: number };
+export type CampaignEconomics = CampaignEconomicsInput & { estimatedLeads: number; estimatedBookings: number; estimatedRevenue: number; grossProfit: number; contributionAfterMarketing: number; blendedRoas: number; breakEvenBookings: number; assumptions: string[]; disclaimer: string };
+export type VideoPlan = { title: string; objective: string; durationSeconds: number; aspectRatio: "9:16" | "16:9"; visualStyle: string; narrator: { voice: string; language: string; pacing: string; ttsPrompt: string }; clips: Array<{ number: number; durationSeconds: number; purpose: string; scene: string; action: string; transitionDescription: string; camera: string; narration: string }>; referenceImages: string[] };
+export type ManimPlan = { title: string; framework: "ManimCE"; durationSeconds: number; scenes: Array<{ title: string; durationSeconds: number; purpose: string; visual: string }>; script: string };
+export type SocialPack = { posts: Array<{ platform: "TikTok" | "Instagram" | "Facebook"; format: string; hook: string; caption: string; hashtags: string[]; cta: string }> };
 
 export const STRATEGY_SYSTEM_PROMPT = `You are a niche marketing strategist. Given a niche and market, return ONLY valid JSON:
 {"options":[{"id":1,"positioning":"","target_customer":"","core_offer":"","campaign":{"name":"","big_idea":"","channels":[],"30_day_plan":[]},"strategy":{"pricing_angle":"","acquisition":[],"retention":[],"kpis":[]},"brand":{"name_ideas":[],"tagline":"","voice":"","palette":["#hex","#hex","#hex","#hex","#hex"],"fonts":{"heading":"","body":""},"logo_direction":""}}]}
@@ -39,12 +44,22 @@ const assetSchemas: Record<string, Record<string, unknown>> = {
   pos: { type: "object", properties: { categories: { type: "array", items: { type: "object", properties: { name: { type: "string" }, layout_id: { type: "string" }, items: { type: "array", items: { type: "object", properties: { name: { type: "string" }, price: { type: "string" }, description: { type: "string" } }, required: ["name", "price", "description"], additionalProperties: false } } }, required: ["name", "layout_id", "items"], additionalProperties: false } }, receipt_layout: { type: "string" } }, required: ["categories", "receipt_layout"], additionalProperties: false },
   logo: { type: "object", properties: { concepts: { type: "array", items: { type: "object", properties: { type: { type: "string" }, svg: { type: "string" } }, required: ["type", "svg"], additionalProperties: false } } }, required: ["concepts"], additionalProperties: false },
 };
+const videoPlanSchema = {
+  type: "object", properties: {
+    title: { type: "string" }, objective: { type: "string" }, durationSeconds: { type: "integer" }, aspectRatio: { type: "string", enum: ["9:16", "16:9"] }, visualStyle: { type: "string" }, narrator: { type: "object", properties: { voice: { type: "string" }, language: { type: "string" }, pacing: { type: "string" } }, required: ["voice", "language", "pacing"], additionalProperties: false }, clips: { type: "array", minItems: 3, maxItems: 4, items: { type: "object", properties: { number: { type: "integer" }, durationSeconds: { type: "integer" }, purpose: { type: "string" }, scene: { type: "string" }, action: { type: "string" }, transitionDescription: { type: "string" }, camera: { type: "string" }, narration: { type: "string" } }, required: ["number", "durationSeconds", "purpose", "scene", "action", "transitionDescription", "camera", "narration"], additionalProperties: false } }, referenceImages: { type: "array", items: { type: "string" } },
+  }, required: ["title", "objective", "durationSeconds", "aspectRatio", "visualStyle", "narrator", "clips", "referenceImages"], additionalProperties: false,
+};
+const socialPackSchema = {
+  type: "object", properties: { posts: { type: "array", minItems: 3, maxItems: 3, items: { type: "object", properties: { platform: { type: "string", enum: ["TikTok", "Instagram", "Facebook"] }, format: { type: "string" }, hook: { type: "string" }, caption: { type: "string" }, hashtags: { type: "array", minItems: 3, maxItems: 10, items: { type: "string" } }, cta: { type: "string" } }, required: ["platform", "format", "hook", "caption", "hashtags", "cta"], additionalProperties: false } } }, required: ["posts"], additionalProperties: false,
+};
 
 function cleanJson(content: unknown) { return (typeof content === "string" ? content : "").replace(/^```json\s*/i, "").replace(/```$/i, "").trim(); }
 async function selectTextModel(preferred: "claude" | "gemini" = "claude") {
   try { const { data } = await listLLMModels(); return data.find((model) => model.id.toLowerCase().includes(preferred))?.id ?? data.find((model) => model.id.toLowerCase().includes("claude"))?.id ?? data[0]?.id; } catch { return undefined; }
 }
 function safeName(text: string) { return text.replace(/[^a-z0-9]/gi, " ").split(" ").filter(Boolean).map((word) => word[0]?.toUpperCase() + word.slice(1).toLowerCase()).join(" "); }
+function safeScriptText(value: string) { return value.replace(/\s+/g, " ").trim().split(" ").slice(0, 18).join(" "); }
+function asPythonString(value: string) { return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " "); }
 
 export function strategyFallback(input: Intake): StrategyOption[] {
   const niche = input.niche || "Local service"; const market = input.market || "your market"; const root = safeName(niche.split(",")[0]) || "Local";
@@ -111,11 +126,74 @@ export async function recognizePhoto(dataUrl: string, filename: string) {
     return { previewUrl: stored.url, analysis: JSON.parse(cleanJson(response.choices[0]?.message?.content)) as PhotoAnalysis, provider: model ?? "gemini" };
   } catch { return { previewUrl: stored.url, analysis: photoAnalysisFallback(), provider: "vision fallback" }; }
 }
+
+export function calculateCampaignEconomics(input: CampaignEconomicsInput): CampaignEconomics {
+  const monthlyBudget = Math.max(0, Number(input.monthlyBudget) || 0); const averageOrderValue = Math.max(0, Number(input.averageOrderValue) || 0);
+  const grossMarginPct = Math.min(100, Math.max(0, Number(input.grossMarginPct) || 0)); const leadToBookingPct = Math.min(100, Math.max(0, Number(input.leadToBookingPct) || 0)); const costPerLead = Math.max(0.01, Number(input.costPerLead) || 0.01);
+  const estimatedLeads = monthlyBudget / costPerLead; const estimatedBookings = estimatedLeads * (leadToBookingPct / 100); const estimatedRevenue = estimatedBookings * averageOrderValue; const grossProfit = estimatedRevenue * (grossMarginPct / 100);
+  return { monthlyBudget, averageOrderValue, grossMarginPct, leadToBookingPct, costPerLead, estimatedLeads, estimatedBookings, estimatedRevenue, grossProfit, contributionAfterMarketing: grossProfit - monthlyBudget, blendedRoas: monthlyBudget ? estimatedRevenue / monthlyBudget : 0, breakEvenBookings: averageOrderValue * (grossMarginPct / 100) ? monthlyBudget / (averageOrderValue * (grossMarginPct / 100)) : 0, assumptions: ["Monthly budget is treated as marketing spend.", "Cost per lead and lead-to-booking rate are user planning assumptions.", "Gross profit equals estimated revenue multiplied by gross-margin percentage."], disclaimer: "Planning model only. Validate inputs against actual operating data before committing spend." };
+}
+
+export function makeNarrationPrompt(kit: BrandKitInput, narration: string, pacing = "natural") {
+  const normalizedPace = /fast|brisk|quick/i.test(pacing) ? "brisk" : /slow|deliberate|measured/i.test(pacing) ? "measured" : "natural";
+  return `Speak in English with a warm, confident U.S. commercial delivery at a ${normalizedPace} pace: ${safeScriptText(narration || `${kit.name}. ${kit.tagline}`)}`;
+}
+function fallbackVideoPlan(kit: BrandKitInput, objective: string): VideoPlan {
+  const narrations = [
+    `${kit.name} makes the next step feel considered, simple, and worth doing.`,
+    `Here is what changes when one clear offer meets a customer’s real routine.`,
+    `${kit.tagline} Start with ${kit.name} today.`,
+  ];
+  return { title: `${kit.name} — Social Launch Film`, objective, durationSeconds: 24, aspectRatio: "9:16", visualStyle: "Premium dimensional 3D product-world storytelling with tactile surfaces, controlled directional light, and no on-screen copy.", narrator: { voice: "Sulafat", language: "en-US", pacing: "natural", ttsPrompt: makeNarrationPrompt(kit, narrations[0]) }, clips: [
+    { number: 1, durationSeconds: 8, purpose: "Hook", scene: "A quiet editorial environment in the Brand Kit palette.", action: "A sculptural signal comes into focus and resolves into a confident invitation.", transitionDescription: "The sculptural signal is present at frame one, softly out of focus against the dark background. The camera performs a slow forward dolly as controlled light reveals material detail without introducing new objects. The signal remains centered while its accent color brightens toward the final second.", camera: "Slow dolly-in", narration: narrations[0] },
+    { number: 2, durationSeconds: 8, purpose: "Proof", scene: "A three-part transformation sequence with abstract service cues.", action: "Three precise visual proof points align into one seamless outcome.", transitionDescription: "Three abstract service cues are already arranged at different depths inside the scene. The camera arcs right as each cue catches light in sequence and moves toward a shared center point. All elements remain visible as their spacing tightens into a unified mark.", camera: "Controlled arc", narration: narrations[1] },
+    { number: 3, durationSeconds: 8, purpose: "Call to action", scene: "A clean final brand environment with generous negative space.", action: "The visual system settles into a calm final reveal.", transitionDescription: "The unified mark stays in the center of the composition from the start of the clip. The camera eases backward while the environment simplifies and the brand accent creates a final halo. The foreground object remains visible throughout and reaches a stable resting state at the end.", camera: "Slow pull-back", narration: narrations[2] },
+  ], referenceImages: ["Primary brand-world material and lighting reference", "Hero subject reference without text", "Final-frame composition reference with safe copy space"] };
+}
+
+export async function generateVideoPlan(kit: BrandKitInput, objective: string) {
+  const model = await selectTextModel("claude");
+  const system = `Create a production-ready short-form video plan using ONLY the supplied Brand Kit. Return JSON matching the schema. Use 3 or 4 clips, each 3–10 seconds. Each transitionDescription must be 2–4 complete sentences stating what exists at the start, movement trajectory, state change, and what remains visible. Choose a 9:16 or 16:9 aspect ratio. Narration must be short enough for each clip. Do not claim a video has been rendered, and do not include on-screen dialogue.`;
+  try {
+    const response = await invokeLLM({ model, messages: [{ role: "system", content: system }, { role: "user", content: JSON.stringify({ brandKit: kit, objective }) }], response_format: { type: "json_schema", json_schema: { name: "video_production_plan", strict: true, schema: videoPlanSchema } } });
+    const raw = JSON.parse(cleanJson(response.choices[0]?.message?.content)) as Omit<VideoPlan, "narrator"> & { narrator: Omit<VideoPlan["narrator"], "ttsPrompt"> };
+    const firstNarration = raw.clips?.[0]?.narration || `${kit.name}. ${kit.tagline}`;
+    return { plan: { ...raw, narrator: { ...raw.narrator, ttsPrompt: makeNarrationPrompt(kit, firstNarration, raw.narrator.pacing) } }, provider: model ?? "claude" };
+  } catch { return { plan: fallbackVideoPlan(kit, objective), provider: "curated fallback" }; }
+}
+
+export function createManimPlan(kit: BrandKitInput, economics: CampaignEconomics): ManimPlan {
+  const title = `${kit.name} Campaign Economics`;
+  const safeTitle = asPythonString(title); const safeTagline = asPythonString(kit.tagline); const accent = kit.palette[2] || "#DDFF51"; const paper = kit.palette[1] || "#F8F5EE";
+  const labels = ["Budget", "Leads", "Bookings", "Revenue"].map(asPythonString); const values = [economics.monthlyBudget, economics.estimatedLeads, economics.estimatedBookings, economics.estimatedRevenue].map((value) => Math.max(0.01, Number(value.toFixed(2))));
+  const script = `from manim import *\n\nclass CampaignEconomics(Scene):\n    def construct(self):\n        title = Text("${safeTitle}", font_size=42, color="${paper}")\n        tagline = Text("${safeTagline}", font_size=24, color="${accent}")\n        header = VGroup(title, tagline).arrange(DOWN, aligned_edge=LEFT, buff=0.18).to_edge(UP, buff=0.55)\n        labels = ${JSON.stringify(labels)}\n        values = ${JSON.stringify(values)}\n        chart = BarChart(values=values, bar_names=labels, y_range=[0, max(values) * 1.2, max(values) / 4], y_length=4.3, x_length=9.5, bar_colors=["${accent}", "#A3DB85", "#C9A86A", "#FFFFFF"])\n        chart.next_to(header, DOWN, buff=0.55)\n        conclusion = Text("${asPythonString(`ROAS ${economics.blendedRoas.toFixed(2)}x  •  Contribution $${economics.contributionAfterMarketing.toFixed(0)}`)}", font_size=26, color="${paper}").to_edge(DOWN, buff=0.58)\n        self.play(FadeIn(header, shift=DOWN * 0.2), run_time=0.8)\n        self.play(Create(chart), run_time=2.1)\n        self.play(Write(conclusion), run_time=0.8)\n        self.wait(1.3)\n`;
+  return { title, framework: "ManimCE", durationSeconds: 5, scenes: [{ title: "Signal", durationSeconds: 1, purpose: "Introduce the Brand Kit and campaign frame.", visual: "Editorial title and brand tagline." }, { title: "Economics", durationSeconds: 3, purpose: "Explain campaign inputs and expected outcome.", visual: "Animated value bars for budget, leads, bookings, and revenue." }, { title: "Decision", durationSeconds: 1, purpose: "Close on decision metrics.", visual: "ROAS and contribution summary." }], script };
+}
+
+function fallbackSocialPack(kit: BrandKitInput, objective: string): SocialPack {
+  const common = ["#LocalBusiness", "#PremiumService", "#DFWBusiness"];
+  return { posts: [
+    { platform: "TikTok", format: "8-second transformation reveal", hook: "What if the next step felt this easy?", caption: `${kit.name} turns ${kit.offer.toLowerCase()} into a considered experience. ${objective}`, hashtags: ["#fyp", "#foryoupage", "#viral", ...common], cta: "Save this for your next reset." },
+    { platform: "Instagram", format: "Reel + three-frame Story", hook: kit.tagline, caption: `${kit.name}: ${kit.offer} Built for people who value a clear process and a finished result.`, hashtags: ["#BrandStory", "#ServiceDesign", ...common], cta: "Send this to someone who deserves an easier next step." },
+    { platform: "Facebook", format: "Community proof post", hook: "A more thoughtful way to get it done.", caption: `Meet ${kit.name}. ${kit.tagline} ${kit.offer}`, hashtags: ["#SupportLocal", "#CommunityFirst", ...common], cta: "Message us to plan your next appointment." },
+  ] };
+}
+
+export function normalizeSocialPack(pack: SocialPack): SocialPack {
+  return { posts: pack.posts.map((post) => post.platform === "TikTok" ? { ...post, hashtags: Array.from(new Set(["#fyp", "#foryoupage", "#viral", ...post.hashtags])).slice(0, 10) } : post) };
+}
+
+export async function generateSocialPack(kit: BrandKitInput, objective: string) {
+  const model = await selectTextModel("claude");
+  const system = "Create exactly three platform-ready social posts using ONLY the supplied Brand Kit: one TikTok, one Instagram, and one Facebook. Use concrete niche-specific language. Hashtags are suggested discovery tags, not claims that they are trending. TikTok must include #fyp, #foryoupage, and #viral. Return JSON only.";
+  try {
+    const response = await invokeLLM({ model, messages: [{ role: "system", content: system }, { role: "user", content: JSON.stringify({ brandKit: kit, objective }) }], response_format: { type: "json_schema", json_schema: { name: "social_distribution_pack", strict: true, schema: socialPackSchema } } });
+    return { pack: normalizeSocialPack(JSON.parse(cleanJson(response.choices[0]?.message?.content)) as SocialPack), provider: model ?? "claude" };
+  } catch { return { pack: fallbackSocialPack(kit, objective), provider: "curated fallback" }; }
+}
+
 export function makeTtsPrompt(kit: BrandKitInput) {
   const offer = kit.offer.split(/(?<=[.!?])\s+/)[0]?.trim() ?? kit.offer;
-  const script = `${kit.name}. ${kit.tagline} ${offer} Reserve your moment today.`
-    .split(/\s+/)
-    .slice(0, 45)
-    .join(" ");
+  const script = `${kit.name}. ${kit.tagline} ${offer} Reserve your moment today.`.split(/\s+/).slice(0, 45).join(" ");
   return `Speak in English with a confident, composed, warmly persuasive commercial delivery at a natural pace: ${script}`;
 }

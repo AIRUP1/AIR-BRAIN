@@ -1,0 +1,1 @@
+ALTER TABLE `assets` MODIFY COLUMN `type` enum('deck','website','email','pos','logo','visual','voice','finance','video','animation','social') NOT NULL;

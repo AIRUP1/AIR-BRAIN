@@ -4,11 +4,12 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
-import { createCampaignVisual, generateAsset, generateStrategy, makeTtsPrompt, recognizePhoto, upscaleImage } from "./brandforge";
+import { calculateCampaignEconomics, createCampaignVisual, createManimPlan, generateAsset, generateSocialPack, generateStrategy, generateVideoPlan, makeTtsPrompt, recognizePhoto, upscaleImage } from "./brandforge";
 
 const intakeSchema = z.object({ niche: z.string().min(2).max(240), market: z.string().min(2).max(240), budget: z.string().max(80).optional(), audience: z.string().max(320).optional(), tone: z.string().max(120).optional() });
 const brandKitSchema = z.object({ name: z.string().min(2).max(160), palette: z.array(z.string()).min(3).max(6), fonts: z.object({ heading: z.string(), body: z.string() }), voice: z.string().min(2), tagline: z.string().min(2), offer: z.string().min(2) });
 const imageDataSchema = z.string().startsWith("data:image/").max(4_500_000);
+const economicsSchema = z.object({ monthlyBudget: z.number().min(0).max(10_000_000), averageOrderValue: z.number().min(0).max(10_000_000), grossMarginPct: z.number().min(0).max(100), leadToBookingPct: z.number().min(0).max(100), costPerLead: z.number().positive().max(1_000_000) });
 
 export const appRouter = router({
   system: systemRouter,
@@ -34,6 +35,20 @@ export const appRouter = router({
     recognizePhoto: publicProcedure.input(z.object({ dataUrl: imageDataSchema, filename: z.string().min(1).max(160) })).mutation(async ({ input }) => recognizePhoto(input.dataUrl, input.filename)),
     upscaleVisual: publicProcedure.input(z.object({ dataUrl: imageDataSchema })).mutation(async ({ input }) => ({ url: await upscaleImage(input.dataUrl) })),
     makeVoicePrompt: publicProcedure.input(brandKitSchema).query(({ input }) => ({ prompt: makeTtsPrompt(input) })),
+    modelEconomics: publicProcedure.input(economicsSchema.extend({ brandKitId: z.number().int().nonnegative() })).mutation(async ({ input }) => {
+      const { brandKitId, ...economicsInput } = input; const model = calculateCampaignEconomics(economicsInput);
+      const id = brandKitId ? await db.saveAsset({ brandKitId, type: "finance", variant: 1, provider: "deterministic model", payload: model }) : null;
+      return { id: id ?? 0, ...model };
+    }),
+    createVideoPlan: publicProcedure.input(z.object({ brandKitId: z.number().int().nonnegative(), kit: brandKitSchema, objective: z.string().min(5).max(320) })).mutation(async ({ input }) => {
+      const generated = await generateVideoPlan(input.kit, input.objective); const id = input.brandKitId ? await db.saveAsset({ brandKitId: input.brandKitId, type: "video", variant: 1, provider: generated.provider, payload: generated.plan }) : null; return { id: id ?? 0, ...generated };
+    }),
+    createManimPlan: publicProcedure.input(z.object({ brandKitId: z.number().int().nonnegative(), kit: brandKitSchema, economics: economicsSchema })).mutation(async ({ input }) => {
+      const plan = createManimPlan(input.kit, calculateCampaignEconomics(input.economics)); const id = input.brandKitId ? await db.saveAsset({ brandKitId: input.brandKitId, type: "animation", variant: 1, provider: "ManimCE", payload: plan }) : null; return { id: id ?? 0, plan };
+    }),
+    createSocialPack: publicProcedure.input(z.object({ brandKitId: z.number().int().nonnegative(), kit: brandKitSchema, objective: z.string().min(5).max(320) })).mutation(async ({ input }) => {
+      const generated = await generateSocialPack(input.kit, input.objective); const id = input.brandKitId ? await db.saveAsset({ brandKitId: input.brandKitId, type: "social", variant: 1, provider: generated.provider, payload: generated.pack }) : null; return { id: id ?? 0, ...generated };
+    }),
     listAssets: publicProcedure.input(z.object({ brandKitId: z.number().int().positive() })).query(({ input }) => db.listBrandAssets(input.brandKitId)),
   }),
 });

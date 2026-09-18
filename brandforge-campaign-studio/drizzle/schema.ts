@@ -59,7 +59,7 @@ export const brandKits = mysqlTable("brand_kits", {
 export const assets = mysqlTable("assets", {
   id: int("id").autoincrement().primaryKey(),
   brandKitId: int("brandKitId").notNull(),
-  type: mysqlEnum("type", ["deck", "website", "email", "pos", "logo", "visual", "voice"]).notNull(),
+  type: mysqlEnum("type", ["deck", "website", "email", "pos", "logo", "visual", "voice", "finance", "video", "animation", "social"]).notNull(),
   variant: int("variant").notNull(),
   schemaVersion: varchar("schemaVersion", { length: 32 }).notNull().default("1.0"),
   provider: varchar("provider", { length: 80 }).notNull().default("claude"),
