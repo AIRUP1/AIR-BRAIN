@@ -70,6 +70,22 @@ export const assets = mysqlTable("assets", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+/** Non-sensitive operational records for POS quotes. Payment credentials and card data are never stored here. */
+export const posTickets = mysqlTable("pos_tickets", {
+  id: int("id").autoincrement().primaryKey(),
+  brandKitId: int("brandKitId").notNull(),
+  ticketNumber: varchar("ticketNumber", { length: 64 }).notNull().unique(),
+  status: mysqlEnum("status", ["quote", "exported", "void"]).default("quote").notNull(),
+  currency: varchar("currency", { length: 8 }).notNull().default("USD"),
+  subtotalCents: int("subtotalCents").notNull(),
+  taxCents: int("taxCents").notNull(),
+  tipCents: int("tipCents").notNull(),
+  totalCents: int("totalCents").notNull(),
+  payload: json("payload").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 /** Append-only audit trail for edits and regenerated asset variants. */
 export const assetVersions = mysqlTable("asset_versions", {
   id: int("id").autoincrement().primaryKey(),
@@ -85,3 +101,4 @@ export type InsertUser = typeof users.$inferInsert;
 export type Project = typeof projects.$inferSelect;
 export type BrandKitRecord = typeof brandKits.$inferSelect;
 export type AssetRecord = typeof assets.$inferSelect;
+export type PosTicketRecord = typeof posTickets.$inferSelect;

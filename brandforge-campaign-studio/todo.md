@@ -4,14 +4,22 @@
 
 - [x] Build niche intake, three-route strategy engine, and Brand Kit lock.
 - [x] Generate deck, website, email, POS, logo, visual, and TTS prompt assets.
-- [x] Add image recognition, OCR, and upscale workflow.
-- [x] Add website and email preview modes with device controls and template switching.
-- [x] Add a brand-locked production center for campaign economics, AI-video planning, ManimCE script export, compliant TTS directions, and social distribution packs.
-- [x] Persist financial models, video briefs, animation plans, and social packs through the full-stack API.
-- [x] Apply the production-asset database enum migration.
-- [x] Verify a live locked-Brand-Kit workflow, including economics output, video plan, TTS direction, ManimCE export, and three social drafts.
-- [x] Run TypeScript checking, unit tests, production build, desktop screenshot review, mobile screenshot review, and browser-console review.
+- [x] Add image recognition, OCR, upscale workflow, and interactive website/email preview modes.
+- [x] Add campaign economics, AI-video briefs, ManimCE script exports, compliant TTS directions, and social distribution packs.
+- [x] Add a POS Operations workspace that turns a generated POS Menu into a category-aware register catalog.
+- [x] Add editable quote tickets with line quantities, tax, tip, immutable cents arithmetic, and receipt-context fields.
+- [x] Add a database-backed POS quote ledger with ticket number, status, totals, and a non-sensitive JSON payload.
+- [x] Add plain-text quote receipt export clearly marked as not a payment receipt.
+- [x] Add a Deluxe-oriented merchant onboarding package for catalog, tax, location, and receipt mapping.
+- [x] Add an Eliot by Deluxe activation panel that detects server-side credential readiness and documents hosted-payment versus Mobile POS SDK requirements.
+- [x] Preserve a strict payment boundary: no card, EMV, wallet, or PCI-sensitive data is accepted or stored in BrandForge.
+- [x] Validate POS catalog conversion, quote calculations, quote persistence, receipt export, non-sensitive Deluxe mapping, TypeScript, unit tests, production build, and live browser workflow.
 
-## Deferred Release Backlog
+## Intentionally Deferred Merchant Activation
 
-The present integration intentionally stops before an approved-render queue for final audio, video, and Manim outputs, social account selection and scheduling, and data-backed forecast-versus-actual performance imports. These additions require destination-specific credentials or an approved external production action and therefore are not silently enabled in the public app.
+- [x] Deferred by project owner: do not add `DELUXE_CLIENT_ID`, `DELUXE_CLIENT_SECRET`, or `DELUXE_PARTNER_TOKEN` to the current release.
+- [x] Deferred by project owner: do not request or infer the merchant’s approved Deluxe payment product.
+- [x] Deferred by project owner: do not build a bearer-token, transaction, or webhook flow without the merchant-specific Deluxe API contract.
+- [x] Deferred by project owner: do not connect a sandbox or simulate a merchant-authorized payment test.
+
+The application remains useful without merchant credentials: it produces catalogs, quotes, quote receipts, an operational ledger, and a non-sensitive Deluxe onboarding package. Live payment capture stays intentionally unavailable until a merchant-provisioned Deluxe integration is authorized.

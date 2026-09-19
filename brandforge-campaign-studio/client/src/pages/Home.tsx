@@ -8,6 +8,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import AssetPreview from "@/components/AssetPreview";
 import ProductionCommandCenter from "@/components/ProductionCommandCenter";
+import PosCommandCenter from "@/components/PosCommandCenter";
 
 type Option = {
   id: number; positioning: string; target_customer: string; core_offer: string;
@@ -173,9 +174,11 @@ export default function Home() {
             const generated = assets.find((item) => item.type === asset.type); const Icon = asset.icon;
             return <div className="asset-card" key={asset.type}><div className="asset-card-head"><span>0{index + 1}</span><Icon size={18} /></div><h3>{asset.name}</h3><p>{asset.export}</p><div className="asset-card-bottom">{generated ? <><span className="ready"><Check size={13} /> READY</span><div className="asset-ready-actions">{(asset.type === "website" || asset.type === "email") && <button className="preview-link" onClick={() => setPreviewAsset(generated)}><Eye size={14} /> Preview</button>}<button onClick={() => downloadFile(`${kit.name.toLowerCase().replace(/\s+/g, "-")}-${asset.type}.json`, JSON.stringify(generated.payload, null, 2))}><Download size={15} /> Export</button></div></> : <button className="generate-link" onClick={() => generateAsset(asset.type as "deck" | "website" | "email" | "pos" | "logo")} disabled={assetGen.isPending || !brandKitId}><Sparkles size={14} /> Generate <ArrowUpRight size={14} /></button>}</div></div>;
           })}</div>
-        </section>
+	        </section>
 
-        <section className="visual-lab section-card">
+	        <PosCommandCenter kit={kit} brandKitId={brandKitId} posAsset={assets.find((item) => item.type === "pos")} />
+
+	        <section className="visual-lab section-card">
           <div className="section-kicker compact"><span>05</span><div><small>VISUAL LAB / GENERATE, RECOGNIZE, ENHANCE</small><h2>Make the image work harder.</h2></div><div className="line" /><p>Choose an available image model at run time; outputs are stored against the brand kit.</p></div>
           <div className="visual-layout">
             <div className={`visual-stage ${visualUrl ? "has-visual" : ""}`}>{visualUrl ? <img src={visualUrl} alt="Generated campaign visual" /> : <><div className="stage-axis axis-x" /><div className="stage-axis axis-y" /><div className="stage-shape shape-a" /><div className="stage-shape shape-b" /><div className="stage-label">CAMPAIGN<br />KEY VISUAL</div></>}<div className="stage-overlay"><span>16:9 / CINEMATIC</span><span>{visualUrl ? "ASSET READY" : "AWAITING SIGNAL"}</span></div></div>

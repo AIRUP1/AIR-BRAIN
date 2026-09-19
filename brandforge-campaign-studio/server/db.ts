@@ -6,6 +6,7 @@ import {
   brandKits,
   InsertUser,
   nicheOptions,
+  posTickets,
   projects,
   users,
 } from "../drizzle/schema";
@@ -126,4 +127,35 @@ export async function listBrandAssets(brandKitId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(assets).where(eq(assets.brandKitId, brandKitId)).orderBy(desc(assets.updatedAt));
+}
+
+export async function savePosTicket(input: {
+  brandKitId: number;
+  ticketNumber: string;
+  currency: string;
+  subtotalCents: number;
+  taxCents: number;
+  tipCents: number;
+  totalCents: number;
+  payload: Record<string, unknown>;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(posTickets).values({
+    brandKitId: input.brandKitId,
+    ticketNumber: input.ticketNumber,
+    currency: input.currency,
+    subtotalCents: input.subtotalCents,
+    taxCents: input.taxCents,
+    tipCents: input.tipCents,
+    totalCents: input.totalCents,
+    payload: input.payload,
+  });
+  return result[0].insertId;
+}
+
+export async function listPosTickets(brandKitId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(posTickets).where(eq(posTickets.brandKitId, brandKitId)).orderBy(desc(posTickets.createdAt)).limit(12);
 }
