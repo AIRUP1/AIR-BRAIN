@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { CalendarClock, CheckCircle2, Clock3, FilterX, Loader2, Plus, Search, UserRoundPlus, UsersRound } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, Clock3, FilterX, Loader2, Search, ShieldCheck, UserRoundPlus, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import TechnicianAvailabilityEditor from "@/components/TechnicianAvailabilityEditor";
 
 type Kit = { name: string };
 type TicketRow = { id: number; ticketNumber: string; totalCents: number; status: "quote" | "exported" | "void"; createdAt: Date | string };
@@ -11,6 +12,7 @@ type Appointment = { id: number; ticketId: number; ticketNumber: string; totalCe
 const formatMoney = (cents: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 const formatDateTime = (value: Date | string) => new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
 const localDateTime = (value: Date) => { const shifted = new Date(value.getTime() - value.getTimezoneOffset() * 60_000); return shifted.toISOString().slice(0, 16); };
+const availabilityFallback = { brandKitId: 1, technicianId: 1, startsAt: "2026-01-01T00:00:00.000Z", durationMinutes: 60 };
 
 export default function SchedulingWorkspace({ kit, brandKitId }: { kit: Kit; brandKitId: number }) {
   const [technicianName, setTechnicianName] = useState("");
@@ -33,7 +35,7 @@ export default function SchedulingWorkspace({ kit, brandKitId }: { kit: Kit; bra
     onError: () => toast.error("Technician could not be added."),
   });
   const createAppointment = trpc.studio.pos.createAppointment.useMutation({
-    onSuccess: () => { setNotes(""); setSelectedTicketId(0); void utils.studio.pos.listAppointments.invalidate(); toast.success("Appointment scheduled and technician assigned."); },
+    onSuccess: () => { setNotes(""); setSelectedTicketId(0); void utils.studio.pos.listAppointments.invalidate(); void utils.studio.pos.checkAppointmentAvailability.invalidate(); toast.success("Appointment scheduled and technician assigned."); },
     onError: (error) => toast.error(error.message || "Appointment could not be scheduled."),
   });
   const updateAppointment = trpc.studio.pos.updateAppointmentStatus.useMutation({
@@ -45,10 +47,15 @@ export default function SchedulingWorkspace({ kit, brandKitId }: { kit: Kit; bra
   const appointmentRows = (appointments.data ?? []) as Appointment[];
   const selectedTicket = useMemo(() => ticketRows.find((ticket) => ticket.id === selectedTicketId), [ticketRows, selectedTicketId]);
   const selectedTechnician = useMemo(() => technicianRows.find((technician) => technician.id === selectedTechnicianId), [technicianRows, selectedTechnicianId]);
-  const canSchedule = Boolean(selectedTicket && selectedTechnician && startsAt && brandKitId);
+  const availabilityInput = useMemo(() => {
+    const start = new Date(startsAt);
+    return brandKitId && selectedTechnicianId && startsAt && !Number.isNaN(start.getTime()) ? { brandKitId, technicianId: selectedTechnicianId, startsAt: start.toISOString(), durationMinutes } : null;
+  }, [brandKitId, selectedTechnicianId, startsAt, durationMinutes]);
+  const availabilityCheck = trpc.studio.pos.checkAppointmentAvailability.useQuery(availabilityInput ?? availabilityFallback, { enabled: Boolean(availabilityInput), retry: false });
+  const canSchedule = Boolean(selectedTicket && selectedTechnician && startsAt && brandKitId && availabilityCheck.data?.available);
   const resetFilters = () => { setSearch(""); setStatusFilter("all"); setFrom(""); setTo(""); };
   const schedule = () => {
-    if (!canSchedule || !selectedTicket || !selectedTechnician) return;
+    if (!canSchedule || !selectedTicket || !selectedTechnician) { if (availabilityCheck.data?.reason) toast.error(availabilityCheck.data.reason); return; }
     createAppointment.mutate({ brandKitId, ticketId: selectedTicket.id, technicianId: selectedTechnician.id, startsAt: new Date(startsAt).toISOString(), durationMinutes, notes: notes || undefined });
   };
 
@@ -65,10 +72,11 @@ export default function SchedulingWorkspace({ kit, brandKitId }: { kit: Kit; bra
         <div className="schedule-selects"><label><span>SELECTED QUOTE</span><select value={selectedTicketId ? String(selectedTicketId) : "none"} onChange={(event) => setSelectedTicketId(event.target.value === "none" ? 0 : Number(event.target.value))}><option value="none">Choose a quote from search results</option>{ticketRows.map((ticket) => <option key={ticket.id} value={String(ticket.id)}>{ticket.ticketNumber} · {formatMoney(ticket.totalCents)}</option>)}</select></label><label><span>ASSIGNED TECHNICIAN</span><select value={selectedTechnicianId ? String(selectedTechnicianId) : "none"} onChange={(event) => setSelectedTechnicianId(event.target.value === "none" ? 0 : Number(event.target.value))}><option value="none">Choose an active technician</option>{technicianRows.filter((technician) => technician.status === "active").map((technician) => <option key={technician.id} value={String(technician.id)}>{technician.name} · {technician.role}</option>)}</select></label></div>
         <div className="schedule-selects"><label><span>SERVICE START</span><input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} /></label><label><span>DURATION</span><select value={String(durationMinutes)} onChange={(event) => setDurationMinutes(Number(event.target.value))}><option value="60">60 minutes</option><option value="90">90 minutes</option><option value="120">2 hours</option><option value="180">3 hours</option><option value="240">4 hours</option></select></label></div>
         <label className="schedule-notes"><span>ASSIGNMENT NOTES</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Access instructions, vehicle notes, or service context." maxLength={500} /></label>
-        <div className="schedule-confirmation"><span><Clock3 size={14} />{startsAt ? formatDateTime(new Date(startsAt)) : "Choose a start time"}</span><b>{selectedTechnician ? `${selectedTechnician.name} will own the appointment.` : "Choose a technician to continue."}</b></div>
+        <div className={`schedule-confirmation ${availabilityCheck.data?.available ? "available" : availabilityInput && !availabilityCheck.isLoading ? "blocked" : ""}`}><span><Clock3 size={14} />{startsAt ? formatDateTime(new Date(startsAt)) : "Choose a start time"}</span><b>{selectedTechnician ? `${selectedTechnician.name} will own the appointment.` : "Choose a technician to continue."}</b>{availabilityInput && <p>{availabilityCheck.isLoading ? <><Loader2 className="spin" size={12} /> Checking availability...</> : availabilityCheck.data?.available ? <><ShieldCheck size={12} /> {availabilityCheck.data.reason}</> : <><AlertTriangle size={12} /> {availabilityCheck.data?.reason || "Availability could not be verified."}</>}</p>}</div>
         <button className="command-action" onClick={schedule} disabled={!canSchedule || createAppointment.isPending}>{createAppointment.isPending ? <Loader2 className="spin" size={15} /> : <CheckCircle2 size={15} />}{createAppointment.isPending ? "Scheduling..." : "Schedule selected quote"}</button>
       </article>
     </div>
+    <TechnicianAvailabilityEditor brandKitId={brandKitId} technicians={technicianRows} onAvailabilitySaved={() => { void utils.studio.pos.checkAppointmentAvailability.invalidate(); }} />
     <article className="schedule-ledger"><header><div><span><Search size={14} /> QUOTE LEDGER / SEARCH + FILTER</span><h3>Find a past quote, then schedule it.</h3></div><button onClick={resetFilters}><FilterX size={13} /> Clear filters</button></header><div className="ledger-filters"><label><span>QUOTE NUMBER</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search BF-..." /></label><label><span>STATUS</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option><option value="quote">Quote</option><option value="exported">Exported</option><option value="void">Void</option></select></label><label><span>FROM</span><input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label><label><span>TO</span><input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label></div>
       <div className="search-results">{ledger.isLoading ? <div className="schedule-loading"><Loader2 className="spin" size={14} /> Searching the quote ledger...</div> : ticketRows.length ? ticketRows.map((ticket) => <button key={ticket.id} className={selectedTicketId === ticket.id ? "ledger-ticket selected" : "ledger-ticket"} onClick={() => setSelectedTicketId(ticket.id)}><span><b>{ticket.ticketNumber}</b><small>{formatDateTime(ticket.createdAt)}</small></span><em>{formatMoney(ticket.totalCents)}</em><i>{ticket.status}</i></button>) : <div className="schedule-empty">No saved quotes match these filters. Clear the filters or create a new quote in the register.</div>}</div>
     </article>

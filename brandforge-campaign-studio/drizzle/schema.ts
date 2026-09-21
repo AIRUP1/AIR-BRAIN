@@ -99,6 +99,19 @@ export const technicians = mysqlTable("technicians", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+/** Recurring technician-local service windows used to qualify appointment requests. */
+export const technicianAvailability = mysqlTable("technician_availability", {
+  id: int("id").autoincrement().primaryKey(),
+  brandKitId: int("brandKitId").notNull(),
+  technicianId: int("technicianId").notNull(),
+  weekday: int("weekday").notNull(),
+  startMinutes: int("startMinutes").notNull(),
+  endMinutes: int("endMinutes").notNull(),
+  timeZone: varchar("timeZone", { length: 80 }).notNull().default("America/Chicago"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 /** Scheduled operational work linked to a saved quote and an assigned technician. */
 export const appointments = mysqlTable("appointments", {
   id: int("id").autoincrement().primaryKey(),
@@ -130,4 +143,5 @@ export type BrandKitRecord = typeof brandKits.$inferSelect;
 export type AssetRecord = typeof assets.$inferSelect;
 export type PosTicketRecord = typeof posTickets.$inferSelect;
 export type TechnicianRecord = typeof technicians.$inferSelect;
+export type TechnicianAvailabilityRecord = typeof technicianAvailability.$inferSelect;
 export type AppointmentRecord = typeof appointments.$inferSelect;

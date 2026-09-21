@@ -1,0 +1,5 @@
+# Availability and Collision Detection Validation
+
+The availability workflow was validated live on 2026-09-21 with the **Apex Fleet Detail** Brand Kit. Jordan Lee was added as an active fleet-detail technician and given a recurring Monday–Friday coverage window from 8:00 AM through 5:00 PM in the `America/Chicago` time zone. A saved quote, `BF-20260921-GQ9U`, was then scheduled for a two-hour Tuesday service window at 10:00 AM Central Time; the interface confirmed that the technician was available before enabling the scheduling action.
+
+After the appointment was saved, a second request for the same technician at 10:30 AM Central Time was evaluated as overlapping. The dispatcher-facing message identified the existing scheduled/confirmed time-window conflict, and the scheduling action was disabled. The same assessment is enforced again in the database transaction before the appointment insert, so a client-side bypass cannot create the collision. The feature passed TypeScript checking, 17 automated tests, production build, reusable-skill validation, and a browser-console review with no errors.

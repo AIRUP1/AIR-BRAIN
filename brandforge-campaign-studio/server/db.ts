@@ -10,9 +10,10 @@ import {
   posTickets,
   projects,
   technicians,
+  technicianAvailability,
   users,
 } from "../drizzle/schema";
-import { appointmentEnd, technicianInitials } from "./scheduling";
+import { assessAppointmentAvailability, appointmentEnd, technicianInitials, validateAvailabilityWindow, type AvailabilityWindow } from "./scheduling";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -189,24 +190,59 @@ export async function listTechnicians(brandKitId: number) {
   return db.select().from(technicians).where(eq(technicians.brandKitId, brandKitId)).orderBy(asc(technicians.name)).limit(50);
 }
 
+export async function listTechnicianAvailability(brandKitId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(technicianAvailability).where(eq(technicianAvailability.brandKitId, brandKitId)).orderBy(asc(technicianAvailability.technicianId), asc(technicianAvailability.weekday), asc(technicianAvailability.startMinutes)).limit(200);
+}
+
+export async function replaceTechnicianAvailability(input: { brandKitId: number; technicianId: number; windows: AvailabilityWindow[] }) {
+  const db = await getDb();
+  if (!db) return;
+  if (!input.windows.length || input.windows.length > 14) throw new Error("Set between one and fourteen recurring availability windows.");
+  const windows = input.windows.map(validateAvailabilityWindow);
+  await db.transaction(async (tx) => {
+    const technician = await tx.select({ id: technicians.id }).from(technicians).where(and(eq(technicians.id, input.technicianId), eq(technicians.brandKitId, input.brandKitId), eq(technicians.status, "active"))).for("update").limit(1);
+    if (!technician[0]) throw new Error("Select an active technician from this brand kit.");
+    await tx.delete(technicianAvailability).where(and(eq(technicianAvailability.brandKitId, input.brandKitId), eq(technicianAvailability.technicianId, input.technicianId)));
+    await tx.insert(technicianAvailability).values(windows.map((window) => ({ brandKitId: input.brandKitId, technicianId: input.technicianId, ...window })));
+  });
+}
+
+export async function checkAppointmentAvailability(input: { brandKitId: number; technicianId: number; startsAt: Date; durationMinutes: number }) {
+  const db = await getDb();
+  if (!db) return { available: false, reason: "Scheduling storage is unavailable. Try again shortly." };
+  const [windows, existing] = await Promise.all([
+    db.select().from(technicianAvailability).where(and(eq(technicianAvailability.brandKitId, input.brandKitId), eq(technicianAvailability.technicianId, input.technicianId))).limit(14),
+    db.select({ id: appointments.id, startsAt: appointments.startsAt, durationMinutes: appointments.durationMinutes, status: appointments.status }).from(appointments).where(and(eq(appointments.brandKitId, input.brandKitId), eq(appointments.technicianId, input.technicianId))).limit(100),
+  ]);
+  return assessAppointmentAvailability({ startsAt: input.startsAt, durationMinutes: input.durationMinutes, windows, appointments: existing });
+}
+
 export async function createAppointment(input: { brandKitId: number; ticketId: number; technicianId: number; startsAt: Date; durationMinutes: number; notes?: string }) {
   const db = await getDb();
   if (!db) return null;
   appointmentEnd(input.startsAt, input.durationMinutes);
-  const [ticket, technician] = await Promise.all([
-    db.select({ id: posTickets.id }).from(posTickets).where(and(eq(posTickets.id, input.ticketId), eq(posTickets.brandKitId, input.brandKitId))).limit(1),
-    db.select({ id: technicians.id }).from(technicians).where(and(eq(technicians.id, input.technicianId), eq(technicians.brandKitId, input.brandKitId), eq(technicians.status, "active"))).limit(1),
-  ]);
-  if (!ticket[0] || !technician[0]) throw new Error("Select an active technician and a saved quote from this brand kit.");
-  const result = await db.insert(appointments).values({
-    brandKitId: input.brandKitId,
-    ticketId: input.ticketId,
-    technicianId: input.technicianId,
-    startsAt: input.startsAt,
-    durationMinutes: input.durationMinutes,
-    notes: input.notes?.trim() || null,
+  return db.transaction(async (tx) => {
+    const technician = await tx.select({ id: technicians.id }).from(technicians).where(and(eq(technicians.id, input.technicianId), eq(technicians.brandKitId, input.brandKitId), eq(technicians.status, "active"))).for("update").limit(1);
+    const ticket = await tx.select({ id: posTickets.id }).from(posTickets).where(and(eq(posTickets.id, input.ticketId), eq(posTickets.brandKitId, input.brandKitId))).limit(1);
+    if (!ticket[0] || !technician[0]) throw new Error("Select an active technician and a saved quote from this brand kit.");
+    const [windows, existing] = await Promise.all([
+      tx.select().from(technicianAvailability).where(and(eq(technicianAvailability.brandKitId, input.brandKitId), eq(technicianAvailability.technicianId, input.technicianId))).limit(14),
+      tx.select({ id: appointments.id, startsAt: appointments.startsAt, durationMinutes: appointments.durationMinutes, status: appointments.status }).from(appointments).where(and(eq(appointments.brandKitId, input.brandKitId), eq(appointments.technicianId, input.technicianId))).limit(100),
+    ]);
+    const availability = assessAppointmentAvailability({ startsAt: input.startsAt, durationMinutes: input.durationMinutes, windows, appointments: existing });
+    if (!availability.available) throw new Error(availability.reason);
+    const result = await tx.insert(appointments).values({
+      brandKitId: input.brandKitId,
+      ticketId: input.ticketId,
+      technicianId: input.technicianId,
+      startsAt: input.startsAt,
+      durationMinutes: input.durationMinutes,
+      notes: input.notes?.trim() || null,
+    });
+    return result[0].insertId;
   });
-  return result[0].insertId;
 }
 
 export async function listAppointments(brandKitId: number) {
