@@ -86,6 +86,33 @@ export const posTickets = mysqlTable("pos_tickets", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+/** Brand-scoped service team members eligible for quote appointment assignments. */
+export const technicians = mysqlTable("technicians", {
+  id: int("id").autoincrement().primaryKey(),
+  brandKitId: int("brandKitId").notNull(),
+  name: varchar("name", { length: 160 }).notNull(),
+  role: varchar("role", { length: 120 }).notNull().default("Service technician"),
+  initials: varchar("initials", { length: 8 }).notNull(),
+  color: varchar("color", { length: 16 }).notNull().default("#ddff51"),
+  status: mysqlEnum("status", ["active", "inactive"]).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** Scheduled operational work linked to a saved quote and an assigned technician. */
+export const appointments = mysqlTable("appointments", {
+  id: int("id").autoincrement().primaryKey(),
+  brandKitId: int("brandKitId").notNull(),
+  ticketId: int("ticketId").notNull(),
+  technicianId: int("technicianId").notNull(),
+  startsAt: timestamp("startsAt").notNull(),
+  durationMinutes: int("durationMinutes").notNull(),
+  status: mysqlEnum("status", ["scheduled", "confirmed", "completed", "cancelled"]).default("scheduled").notNull(),
+  notes: varchar("notes", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 /** Append-only audit trail for edits and regenerated asset variants. */
 export const assetVersions = mysqlTable("asset_versions", {
   id: int("id").autoincrement().primaryKey(),
@@ -102,3 +129,5 @@ export type Project = typeof projects.$inferSelect;
 export type BrandKitRecord = typeof brandKits.$inferSelect;
 export type AssetRecord = typeof assets.$inferSelect;
 export type PosTicketRecord = typeof posTickets.$inferSelect;
+export type TechnicianRecord = typeof technicians.$inferSelect;
+export type AppointmentRecord = typeof appointments.$inferSelect;

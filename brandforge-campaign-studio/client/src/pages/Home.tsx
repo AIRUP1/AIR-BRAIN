@@ -9,6 +9,7 @@ import { trpc } from "@/lib/trpc";
 import AssetPreview from "@/components/AssetPreview";
 import ProductionCommandCenter from "@/components/ProductionCommandCenter";
 import PosCommandCenter from "@/components/PosCommandCenter";
+import SchedulingWorkspace from "@/components/SchedulingWorkspace";
 
 type Option = {
   id: number; positioning: string; target_customer: string; core_offer: string;
@@ -177,6 +178,8 @@ export default function Home() {
 	        </section>
 
 	        <PosCommandCenter kit={kit} brandKitId={brandKitId} posAsset={assets.find((item) => item.type === "pos")} />
+
+	        <SchedulingWorkspace kit={kit} brandKitId={brandKitId} />
 
 	        <section className="visual-lab section-card">
           <div className="section-kicker compact"><span>05</span><div><small>VISUAL LAB / GENERATE, RECOGNIZE, ENHANCE</small><h2>Make the image work harder.</h2></div><div className="line" /><p>Choose an available image model at run time; outputs are stored against the brand kit.</p></div>
