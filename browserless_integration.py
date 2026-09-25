@@ -41,7 +41,7 @@ print("  ✓ Headless Chrome Browser Automation")
 print("  ✓ JavaScript Page Rendering")
 print("  ✓ Multi-Platform Job Scraping")
 print("  ✓ Property Data Enrichment")
-print("  ✓ Instagram Profile Scraping")
+print("  ✓ Instagram profile scraping disabled (official API only)")
 print("  ✓ Screenshot & PDF Generation")
 print("  ✓ Unified Scraper API")
 
@@ -609,97 +609,30 @@ class BrowserlessSpokeoScraper:
         return result
 
 
+class InstagramProfileScrapingDisabledError(RuntimeError):
+    """Raised when legacy browser-based Instagram access is requested."""
+
+
 class BrowserlessInstagramScraper:
-    """Instagram scraper using Browserless.io"""
-    
+    """Deprecated compatibility shim for a removed Instagram scraping feature.
+
+    Instagram analysis must use the official Meta API for an account the user
+    owns or manages, or an owner-provided metric export. This guard ensures the
+    legacy Browserless integration cannot collect profile data.
+    """
+
     def __init__(self, browserless: BrowserlessClient):
         self.client = browserless
-    
+
     def get_profile(self, username: str) -> Dict:
-        """Get Instagram profile data"""
-        print(f"\n📷 Instagram Profile: @{username}")
-        
-        username = username.replace('@', '').strip().lower()
-        url = f"https://www.instagram.com/{username}/"
-        
-        html = self.client.get_content(url, timeout=30000)
-        if not html:
-            return {'username': username, 'source': 'instagram_browserless', 'error': 'No content'}
-        
-        soup = BeautifulSoup(html, 'html.parser')
-        
-        result = {
-            'username': username,
-            'full_name': '',
-            'bio': '',
-            'followers': 0,
-            'following': 0,
-            'posts': 0,
-            'external_url': '',
-            'is_verified': False,
-            'is_private': False,
-            'source': 'instagram_browserless'
-        }
-        
-        # Try to extract JSON-LD data
-        for script in soup.find_all('script', type='application/ld+json'):
-            try:
-                data = json.loads(script.string)
-                if isinstance(data, dict):
-                    result['full_name'] = data.get('name', '')
-                    result['bio'] = data.get('description', '')
-                    result['external_url'] = data.get('url', '')
-            except:
-                continue
-        
-        # Try meta tags
-        og_title = soup.find('meta', property='og:title')
-        if og_title:
-            title_content = og_title.get('content', '')
-            if '•' in title_content:
-                parts = title_content.split('•')
-                if len(parts) >= 1:
-                    result['full_name'] = parts[0].strip().replace(f'@{username}', '').strip(' ()')
-        
-        og_desc = soup.find('meta', property='og:description')
-        if og_desc:
-            desc = og_desc.get('content', '')
-            # Parse follower counts from description
-            followers_match = re.search(r'([\d,.]+[KMB]?)\s*Followers', desc, re.I)
-            if followers_match:
-                result['followers'] = self._parse_count(followers_match.group(1))
-            
-            following_match = re.search(r'([\d,.]+[KMB]?)\s*Following', desc, re.I)
-            if following_match:
-                result['following'] = self._parse_count(following_match.group(1))
-            
-            posts_match = re.search(r'([\d,.]+[KMB]?)\s*Posts', desc, re.I)
-            if posts_match:
-                result['posts'] = self._parse_count(posts_match.group(1))
-        
-        print(f"  Name: {result['full_name'] or 'Not found'}")
-        print(f"  Followers: {result['followers']:,}")
-        return result
-    
-    def _parse_count(self, count_str: str) -> int:
-        """Parse follower/following count string to int"""
-        count_str = count_str.replace(',', '').strip().upper()
-        multiplier = 1
-        
-        if 'K' in count_str:
-            multiplier = 1000
-            count_str = count_str.replace('K', '')
-        elif 'M' in count_str:
-            multiplier = 1000000
-            count_str = count_str.replace('M', '')
-        elif 'B' in count_str:
-            multiplier = 1000000000
-            count_str = count_str.replace('B', '')
-        
-        try:
-            return int(float(count_str) * multiplier)
-        except:
-            return 0
+        """Reject profile scraping and direct callers to the compliant toolkit."""
+        normalized_username = username.replace('@', '').strip().lower()
+        raise InstagramProfileScrapingDisabledError(
+            "Instagram profile scraping is disabled for @%s. Use the official "
+            "Meta API or an owner-provided export with "
+            "instagram_organic_growth_toolkit.py instead."
+            % normalized_username
+        )
 
 
 class BrowserlessJobScraper:
@@ -903,7 +836,7 @@ class UnifiedScraperService:
         print("  - LinkedIn Scraper")
         print("  - Indeed Scraper")
         print("  - Spokeo Scraper")
-        print("  - Instagram Scraper")
+        print("  - Instagram profile scraping disabled (use official API toolkit)")
         print("  - Multi-Platform Job Scraper")
         print("  - Stem Cell Clinic Scraper")
     

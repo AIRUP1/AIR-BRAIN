@@ -229,6 +229,20 @@ Feel free to extend this pipeline with:
 
 The CRM-ready, TTS-friendly cold-call playbook for AIR Agents is available at [docs/AIR_AGENT_COLD_CALL_PLAYBOOK.md](docs/AIR_AGENT_COLD_CALL_PLAYBOOK.md). It covers accurate product positioning, permission-based call flows, the DELUXE ENABLE objection process, compliant opt-outs, CRM logging, and TTS-ready examples.
 
+## 📷 Instagram Organic Growth
+
+The repository includes a **read-only, API-only Instagram Organic Growth Toolkit**. It analyzes an account the user owns or manages, or an owner-provided metrics export, then produces performance, content, posting-time, hashtag-candidate, and authentic-engagement recommendations. It does not automate engagement, publish content, or scrape Instagram profiles.
+
+```bash
+python instagram_organic_growth_toolkit.py \
+  --input examples/instagram_metrics.example.json \
+  --niche "home fitness" \
+  --keywords "strength training,workout routine" \
+  --report reports/instagram_growth_report.json
+```
+
+For official Meta API setup, input format, operating guidance, and compliance guardrails, see [docs/INSTAGRAM_ORGANIC_GROWTH_TOOLKIT.md](docs/INSTAGRAM_ORGANIC_GROWTH_TOOLKIT.md).
+
 ## 📝 License
 
 This is an educational example. Feel free to use and modify as needed.

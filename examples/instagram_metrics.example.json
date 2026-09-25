@@ -1,0 +1,58 @@
+{
+  "account": {
+    "username": "example_creator",
+    "followers": 2400,
+    "following": 310,
+    "media_count": 82
+  },
+  "posts": [
+    {
+      "media_id": "post-001",
+      "timestamp": "2026-09-14T17:30:00-05:00",
+      "media_type": "REELS",
+      "likes": 245,
+      "comments": 28,
+      "saves": 44,
+      "shares": 19,
+      "reach": 4120,
+      "views": 5890,
+      "permalink": "https://www.instagram.com/p/example-001/"
+    },
+    {
+      "media_id": "post-002",
+      "timestamp": "2026-09-16T11:00:00-05:00",
+      "media_type": "CAROUSEL_ALBUM",
+      "likes": 132,
+      "comments": 14,
+      "saves": 36,
+      "shares": 11,
+      "reach": 1860,
+      "views": 0,
+      "permalink": "https://www.instagram.com/p/example-002/"
+    },
+    {
+      "media_id": "post-003",
+      "timestamp": "2026-09-18T17:00:00-05:00",
+      "media_type": "REELS",
+      "likes": 221,
+      "comments": 25,
+      "saves": 51,
+      "shares": 23,
+      "reach": 3990,
+      "views": 5400,
+      "permalink": "https://www.instagram.com/p/example-003/"
+    },
+    {
+      "media_id": "post-004",
+      "timestamp": "2026-09-21T10:00:00-05:00",
+      "media_type": "IMAGE",
+      "likes": 69,
+      "comments": 8,
+      "saves": 11,
+      "shares": 2,
+      "reach": 1350,
+      "views": 0,
+      "permalink": "https://www.instagram.com/p/example-004/"
+    }
+  ]
+}

@@ -255,42 +255,38 @@ def register_browserless_routes(app: FastAPI):
             raise HTTPException(status_code=500, detail=str(e))
     
     # ============================================
-    # INSTAGRAM SCRAPING
+    # INSTAGRAM SCRAPING (DISABLED)
     # ============================================
-    
+
     @app.get("/api/scrape/instagram/{username}", tags=["Browserless Scrapers"])
     async def scrape_instagram(username: str):
         """
-        Scrape Instagram profile using Browserless.io
-        
-        Returns profile info, follower counts, bio, etc.
+        Deprecated: Instagram profile scraping is intentionally unavailable.
+
+        Use the official Meta API or an owner-provided metric export with the
+        Instagram Organic Growth Toolkit. The retained route returns a clear
+        status instead of silently attempting browser-based collection.
         """
-        try:
-            service = get_service()
-            profile = service.scrape_instagram(username)
-            return {
-                'status': 'success',
-                'data': profile,
-                'timestamp': datetime.now().isoformat()
-            }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                "Instagram profile scraping is disabled. Use the official Meta API "
+                "or an owner-provided export with instagram_organic_growth_toolkit.py."
+            ),
+        )
+
     @app.post("/api/scrape/instagram", tags=["Browserless Scrapers"])
     async def scrape_instagram_post(request: InstagramRequest):
         """
-        Scrape Instagram profile (POST version)
+        Deprecated: Instagram profile scraping is intentionally unavailable.
         """
-        try:
-            service = get_service()
-            profile = service.scrape_instagram(request.username)
-            return {
-                'status': 'success',
-                'data': profile,
-                'timestamp': datetime.now().isoformat()
-            }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                "Instagram profile scraping is disabled. Use the official Meta API "
+                "or an owner-provided export with instagram_organic_growth_toolkit.py."
+            ),
+        )
     
     # ============================================
     # STEM CELL / PRP CLINIC SCRAPING
@@ -443,7 +439,7 @@ def register_browserless_routes(app: FastAPI):
     print("  GET  /api/scrape/jobs/healthcare-liaison")
     print("  POST /api/scrape/property")
     print("  POST /api/scrape/person")
-    print("  GET  /api/scrape/instagram/{username}")
+    print("  GET  /api/scrape/instagram/{username} (deprecated; returns 410)")
     print("  POST /api/scrape/closed-clinics")
     print("  GET  /api/scrape/closed-clinics/texas")
     print("  POST /api/scrape/content")
