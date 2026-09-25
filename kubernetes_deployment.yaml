@@ -1,101 +1,94 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: air-agents-api-data
+  labels:
+    app.kubernetes.io/name: air-agents-api
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ai-model-serving
+  name: air-agents-api
   labels:
-    app: ai-model-serving
+    app.kubernetes.io/name: air-agents-api
 spec:
-  replicas: 3  # Start with 3 replicas
+  replicas: 1
   selector:
     matchLabels:
-      app: ai-model-serving
+      app.kubernetes.io/name: air-agents-api
   template:
     metadata:
       labels:
-        app: ai-model-serving
+        app.kubernetes.io/name: air-agents-api
     spec:
       containers:
-      - name: model-api
-        image: ai-model-serving:latest
-        ports:
-        - containerPort: 8000
-        env:
-        - name: MLFLOW_TRACKING_URI
-          value: "http://mlflow-service:5000"
-        - name: MODEL_NAME
-          value: "production_model"
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "500m"
-          limits:
-            memory: "2Gi"
-            cpu: "2000m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        - name: api
+          image: ghcr.io/airup1/air-brain:latest
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: AIR_AGENTS_ENV
+              value: production
+            - name: AIR_AGENTS_DATABASE_PATH
+              value: /app/data/air_agents.db
+            - name: AIR_AGENTS_ENABLE_PUBLIC_INTAKE
+              value: "true"
+            - name: AIR_AGENTS_CORS_ORIGINS
+              value: https://airagentsllc.co,https://www.airagentsllc.co
+            - name: AIR_AGENTS_API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: air-agents-api-secrets
+                  key: api-keys-json
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 24
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: air-agents-api-data
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: ai-model-serving-service
+  name: air-agents-api
+  labels:
+    app.kubernetes.io/name: air-agents-api
 spec:
   selector:
-    app: ai-model-serving
+    app.kubernetes.io/name: air-agents-api
   ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 8000
-  type: LoadBalancer
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: ai-model-serving-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: ai-model-serving
-  minReplicas: 3
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
-  behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 60
-      policies:
-      - type: Percent
-        value: 50
-        periodSeconds: 60
-      - type: Pods
-        value: 2
-        periodSeconds: 60
-      selectPolicy: Max
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-      - type: Percent
-        value: 25
-        periodSeconds: 60
-
+    - name: http
+      port: 80
+      targetPort: http
+  type: ClusterIP

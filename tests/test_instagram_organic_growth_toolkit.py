@@ -6,8 +6,8 @@ import pytest
 
 from instagram_organic_growth_toolkit import (
     AccountSnapshot,
-    InstagramGrowthAnalyzer,
     InstagramGraphClient,
+    InstagramGrowthAnalyzer,
     InstagramToolkitError,
     PostMetrics,
     build_hashtag_candidates,
