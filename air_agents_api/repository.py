@@ -135,6 +135,18 @@ class Repository:
             metadata_json TEXT NOT NULL DEFAULT '{}'
         );
         CREATE INDEX IF NOT EXISTS idx_audit_events_created ON audit_events(created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS github_webhook_deliveries (
+            delivery_id TEXT PRIMARY KEY,
+            event_name TEXT NOT NULL,
+            action TEXT,
+            repository_full_name TEXT,
+            installation_id TEXT,
+            payload_sha256 TEXT NOT NULL,
+            received_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_github_webhook_deliveries_received
+            ON github_webhook_deliveries(received_at DESC);
         """
         with self.connection() as connection:
             connection.executescript(schema)
@@ -241,6 +253,41 @@ class Repository:
                     json.dumps(metadata or {}, separators=(",", ":")),
                 ),
             )
+
+    def record_github_webhook_delivery(
+        self,
+        *,
+        delivery_id: str,
+        event_name: str,
+        action: str | None,
+        repository_full_name: str | None,
+        installation_id: str | None,
+        payload_sha256: str,
+    ) -> bool:
+        """Store a delivery receipt once; return False for an acknowledged duplicate."""
+
+        try:
+            with self.connection() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO github_webhook_deliveries (
+                        delivery_id, event_name, action, repository_full_name,
+                        installation_id, payload_sha256, received_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        delivery_id,
+                        event_name,
+                        action,
+                        repository_full_name,
+                        installation_id,
+                        payload_sha256,
+                        utc_now(),
+                    ),
+                )
+        except sqlite3.IntegrityError:
+            return False
+        return True
 
     def list_audit_events(self, *, limit: int = 100, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
         with self.connection() as connection:

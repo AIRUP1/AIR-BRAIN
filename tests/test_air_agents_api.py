@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 from pathlib import Path
 
@@ -11,6 +13,7 @@ from air_agents_api.repository import Repository
 ADMIN_KEY = "admin-secret-key-that-is-long-enough"
 OPERATOR_KEY = "operator-secret-key-that-is-long-enough"
 VIEWER_KEY = "viewer-secret-key-that-is-long-enough"
+GITHUB_WEBHOOK_SECRET = "github-webhook-secret-that-is-long-enough"
 
 
 @pytest.fixture()
@@ -20,6 +23,7 @@ def client(tmp_path: Path):
         database_path=str(tmp_path / "air_agents_test.db"),
         api_keys={ADMIN_KEY: "admin", OPERATOR_KEY: "operator", VIEWER_KEY: "viewer"},
         cors_origins=["https://airagentsllc.co"],
+        github_webhook_secret=GITHUB_WEBHOOK_SECRET,
         enable_public_intake=True,
     )
     app = create_app(settings=settings, repository=Repository(settings.database_path))
@@ -39,6 +43,16 @@ def public_lead() -> dict:
         "service_interest": "creative_launchpad",
         "message": "We want a campaign system.",
         "consent_to_contact": True,
+    }
+
+
+def github_delivery_headers(raw_body: bytes, *, delivery_id: str = "delivery-123") -> dict[str, str]:
+    signature = "sha256=" + hmac.new(GITHUB_WEBHOOK_SECRET.encode(), raw_body, hashlib.sha256).hexdigest()
+    return {
+        "Content-Type": "application/json",
+        "X-GitHub-Delivery": delivery_id,
+        "X-GitHub-Event": "push",
+        "X-Hub-Signature-256": signature,
     }
 
 
@@ -159,4 +173,70 @@ def test_preview_mode_blocks_public_intake(tmp_path: Path):
     app = create_app(settings=settings, repository=Repository(settings.database_path))
     with TestClient(app) as preview_client:
         response = preview_client.post("/v1/public/lead-intake", json=public_lead())
+    assert response.status_code == 503
+
+
+def test_github_webhook_verifies_signature_and_deduplicates_deliveries(client: TestClient):
+    raw_body = json.dumps(
+        {
+            "action": "completed",
+            "repository": {"full_name": "AIRUP1/AIR-BRAIN"},
+            "installation": {"id": 132782399},
+        },
+        separators=(",", ":"),
+    ).encode()
+    headers = github_delivery_headers(raw_body)
+
+    accepted = client.post("/v1/webhooks/github", content=raw_body, headers=headers)
+    assert accepted.status_code == 202
+    assert accepted.json() == {"delivery_id": "delivery-123", "event": "push", "duplicate": False}
+
+    duplicate = client.post("/v1/webhooks/github", content=raw_body, headers=headers)
+    assert duplicate.status_code == 202
+    assert duplicate.json()["duplicate"] is True
+
+    audit = client.get("/v1/workspace/audit-events", headers=auth(ADMIN_KEY))
+    assert audit.json()["total"] == 1
+    assert audit.json()["items"][0]["action"] == "github_webhook_received"
+    assert "payload_sha256" in audit.json()["items"][0]["metadata"]
+
+
+def test_github_webhook_rejects_unsigned_or_invalid_deliveries(client: TestClient):
+    raw_body = b'{"action":"opened"}'
+    missing_signature = client.post(
+        "/v1/webhooks/github",
+        content=raw_body,
+        headers={"X-GitHub-Delivery": "delivery-missing", "X-GitHub-Event": "issues"},
+    )
+    assert missing_signature.status_code == 401
+
+    invalid_signature = client.post(
+        "/v1/webhooks/github",
+        content=raw_body,
+        headers={
+            "X-GitHub-Delivery": "delivery-invalid",
+            "X-GitHub-Event": "issues",
+            "X-Hub-Signature-256": "sha256=" + "0" * 64,
+        },
+    )
+    assert invalid_signature.status_code == 401
+
+
+def test_github_webhook_requires_valid_json_after_signature_verification(client: TestClient):
+    raw_body = b"not-json"
+    response = client.post("/v1/webhooks/github", content=raw_body, headers=github_delivery_headers(raw_body))
+    assert response.status_code == 400
+
+
+def test_github_webhook_is_disabled_without_a_configured_secret(tmp_path: Path):
+    settings = Settings(
+        environment="preview",
+        database_path=str(tmp_path / "webhook-preview.db"),
+        api_keys={},
+        cors_origins=["https://airagentsllc.co"],
+        enable_public_intake=False,
+    )
+    app = create_app(settings=settings, repository=Repository(settings.database_path))
+    with TestClient(app) as preview_client:
+        response = preview_client.post("/v1/webhooks/github", content=b"{}")
     assert response.status_code == 503

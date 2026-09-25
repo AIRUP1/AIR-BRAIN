@@ -240,6 +240,12 @@ class MessageResponse(APIModel):
     message: str
 
 
+class GitHubWebhookResponse(APIModel):
+    delivery_id: str
+    event: str
+    duplicate: bool
+
+
 class HealthResponse(APIModel):
     status: Literal["ok"]
     service: str

@@ -9,6 +9,7 @@ This standalone **FastAPI** service supplies a secure operating layer for `airag
 | Availability | `GET /health`, `GET /v1/health`, `GET /docs`, `GET /openapi.json` | Public |
 | Service discovery | `GET /v1/public/services` | Public |
 | Website intake | `POST /v1/public/lead-intake` | Public, consent required |
+| GitHub webhook | `POST /v1/webhooks/github` | Signed GitHub deliveries only |
 | Workspace overview | `GET /v1/workspace/overview` | Viewer+ |
 | Leads | `GET/POST /v1/workspace/leads`, `GET/PATCH /v1/workspace/leads/{id}` | Viewer+ reads; Operator+ writes |
 | Partners | `GET/POST /v1/workspace/partners`, `PATCH /v1/workspace/partners/{id}` | Viewer+ reads; Operator+ writes |
@@ -53,6 +54,7 @@ For Kubernetes, `kubernetes_deployment.yaml` includes a single-replica deploymen
 | `AIR_AGENTS_API_KEYS` | Yes | JSON object mapping long random secrets to `viewer`, `operator`, or `admin`. |
 | `AIR_AGENTS_ENABLE_PUBLIC_INTAKE` | Yes | Set to `true` only after a durable database is attached. |
 | `AIR_AGENTS_CORS_ORIGINS` | Yes | Comma-separated approved browser origins; start with `https://airagentsllc.co,https://www.airagentsllc.co`. |
+| `AIR_AGENTS_GITHUB_WEBHOOK_SECRET` | For GitHub events | High-entropy secret set identically in GitHub and the API host. |
 
 The service defaults to **no API keys** and **public intake disabled**. This prevents a preview deployment from silently receiving customer data into ephemeral storage.
 
@@ -73,6 +75,29 @@ Example secret mapping (do not reuse it):
 ```
 
 Browser applications must **never** embed any workspace API key. Have the authenticated backend proxy privileged workspace actions instead.
+
+## Supabase migration
+
+The reviewed initial schema is [supabase/migrations/20260925_000001_air_agents_initial.sql](../supabase/migrations/20260925_000001_air_agents_initial.sql). It creates durable workspace tables, status constraints, update triggers, RLS policies, append-only audit events, and GitHub webhook delivery receipts.
+
+> **Current runtime boundary:** the checked-in FastAPI service still uses its SQLite repository adapter for local tests and the contract preview. Do not enable production public intake on SQLite. Apply the migration only to the explicitly selected Supabase project, then configure and validate the Supabase repository adapter before switching production traffic.
+
+Before applying the migration, confirm the project, backup posture, RLS policies, and intended environment. Never run a migration against an unknown project or expose Supabase service-role credentials to a browser.
+
+## GitHub webhook setup
+
+1. Create a high-entropy secret and store it only in the API host as `AIR_AGENTS_GITHUB_WEBHOOK_SECRET`.
+2. In the GitHub App or repository webhook settings, set the payload URL to:
+
+   ```text
+   https://api.airagentsllc.co/v1/webhooks/github
+   ```
+
+3. Select `application/json`, set the same secret, and subscribe only to the event types required by the workflow.
+4. Ensure the GitHub App has **Contents: Read and write** to edit repository files and **Workflows: Read and write** to create or modify `.github/workflows/*` files. GitHub Actions workflow-token settings are separate from GitHub App permissions.
+5. Send a test delivery and verify a `202` response. The endpoint checks the raw body with `X-Hub-Signature-256`, requires `X-GitHub-Delivery` and `X-GitHub-Event`, and acknowledges a repeated delivery ID without reprocessing it.
+
+The endpoint records only a safe metadata summary and SHA-256 payload fingerprint; it does not log secrets or full payloads. It currently receives and audits verified events but deliberately does not perform a consequential repository action from an inbound delivery.
 
 ## Website intake example
 

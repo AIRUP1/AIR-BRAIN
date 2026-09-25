@@ -27,6 +27,7 @@ class Settings:
     database_path: str
     api_keys: dict[str, Role]
     cors_origins: list[str]
+    github_webhook_secret: str | None = None
     enable_public_intake: bool = False
     service_version: str = "1.0.0"
 
@@ -85,6 +86,7 @@ def get_settings() -> Settings:
         database_path=database_path,
         api_keys=_parse_api_keys(os.getenv("AIR_AGENTS_API_KEYS", "")),
         cors_origins=origins,
+        github_webhook_secret=os.getenv("AIR_AGENTS_GITHUB_WEBHOOK_SECRET") or None,
         enable_public_intake=os.getenv("AIR_AGENTS_ENABLE_PUBLIC_INTAKE", "false").lower()
         in {"1", "true", "yes"},
     )

@@ -19,11 +19,18 @@ from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 
 from .config import ConfigurationError, Settings, get_settings
+from .github_webhooks import (
+    GitHubWebhookSignatureError,
+    payload_sha256,
+    summarize_github_event,
+    verify_github_signature,
+)
 from .repository import Repository
 from .schemas import (
     CampaignBriefCreate,
     CampaignBriefResponse,
     CampaignBriefUpdate,
+    GitHubWebhookResponse,
     HealthResponse,
     LeadCreate,
     LeadIntakeRequest,
@@ -151,6 +158,7 @@ def create_app(
             {"name": "Public intake", "description": "Low-friction, consent-aware website intake."},
             {"name": "Workspace", "description": "Authenticated operating records."},
             {"name": "Compliance", "description": "Role-restricted audit trail."},
+            {"name": "Webhooks", "description": "Signed machine-to-machine provider deliveries."},
         ],
         lifespan=lifespan,
     )
@@ -273,6 +281,78 @@ def create_app(
             metadata={"source": lead["source"], "service_interest": lead["service_interest"]},
         )
         return MessageResponse(message="Thank you. Your request has been received.")
+
+    @app.post(
+        "/v1/webhooks/github",
+        tags=["Webhooks"],
+        response_model=GitHubWebhookResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    async def receive_github_webhook(request: Request) -> GitHubWebhookResponse:
+        """Verify and acknowledge a GitHub delivery without logging its raw payload."""
+
+        if not settings.github_webhook_secret:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="GitHub webhook delivery is not configured for this environment.",
+            )
+
+        raw_body = await request.body()
+        try:
+            verify_github_signature(
+                raw_body=raw_body,
+                secret=settings.github_webhook_secret,
+                signature_header=request.headers.get("X-Hub-Signature-256"),
+            )
+        except GitHubWebhookSignatureError as exc:
+            logger.warning("Rejected GitHub webhook signature", extra={"path": request.url.path})
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Webhook authentication failed.",
+            ) from exc
+
+        delivery_id = request.headers.get("X-GitHub-Delivery")
+        event_name = request.headers.get("X-GitHub-Event")
+        if not delivery_id or not event_name or len(delivery_id) > 128 or len(event_name) > 120:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="GitHub delivery metadata is missing or invalid.",
+            )
+
+        try:
+            payload = json.loads(raw_body)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="GitHub webhook payload must be valid JSON.",
+            ) from exc
+        if not isinstance(payload, dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="GitHub webhook payload must be a JSON object.",
+            )
+
+        summary = summarize_github_event(payload)
+        digest = payload_sha256(raw_body)
+        inserted = repository.record_github_webhook_delivery(
+            delivery_id=delivery_id,
+            event_name=event_name,
+            payload_sha256=digest,
+            **summary,
+        )
+        if inserted:
+            repository.record_audit(
+                actor_role="system",
+                action="github_webhook_received",
+                entity_type="github_webhook_delivery",
+                entity_id=delivery_id,
+                metadata={"event": event_name, "payload_sha256": digest, **summary},
+            )
+            logger.info("Accepted GitHub webhook", extra={"delivery_id": delivery_id, "event": event_name})
+        else:
+            logger.info("Acknowledged duplicate GitHub webhook", extra={"delivery_id": delivery_id, "event": event_name})
+
+        return GitHubWebhookResponse(delivery_id=delivery_id, event=event_name, duplicate=not inserted)
 
     @app.get("/v1/workspace/overview", tags=["Workspace"], response_model=OverviewResponse)
     async def workspace_overview(_: Principal = Depends(require_role("viewer"))) -> OverviewResponse:
