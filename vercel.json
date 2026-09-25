@@ -1,4 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
+  "functions": {
+    "app.py": {
+      "maxDuration": 10,
+      "excludeFiles": "{tests/**,.venv/**,docs/**,examples/**,**/test_*.py}"
+    }
+  }
 }

@@ -111,7 +111,7 @@ The current Cloudflare connection inspected for this build does **not** control 
 
 ## Preview deployment
 
-The repository includes `api/index.py` and `vercel.json` for an automatic Vercel **contract preview**. Vercel’s serverless filesystem is not durable for this SQLite design, so the preview safely leaves public intake disabled and has no workspace keys. It is suitable for `/health`, `/docs`, and OpenAPI review—not production lead collection or workspace records.
+The repository includes `app.py` and `vercel.json` for an automatic Vercel **contract preview**. Vercel’s serverless filesystem is not durable for this SQLite design, so the preview safely leaves public intake disabled and has no workspace keys. It is suitable for `/health`, `/docs`, and OpenAPI review—not production lead collection or workspace records.
 
 ## Verification checklist
 
