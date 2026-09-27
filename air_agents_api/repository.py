@@ -125,6 +125,34 @@ class Repository:
         );
         CREATE INDEX IF NOT EXISTS idx_campaign_briefs_status ON campaign_briefs(status);
 
+        CREATE TABLE IF NOT EXISTS investor_blueprints (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            as_of_date TEXT NOT NULL,
+            currency TEXT NOT NULL DEFAULT 'USD',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_investor_blueprints_as_of_date
+            ON investor_blueprints(as_of_date DESC);
+
+        CREATE TABLE IF NOT EXISTS investor_kpis (
+            id TEXT PRIMARY KEY,
+            blueprint_id TEXT NOT NULL REFERENCES investor_blueprints(id) ON DELETE CASCADE,
+            category TEXT NOT NULL CHECK (category IN ('revenue', 'retention', 'growth', 'operations')),
+            label TEXT NOT NULL,
+            actual_value REAL NOT NULL,
+            target_value REAL NOT NULL CHECK (target_value > 0),
+            unit TEXT NOT NULL CHECK (unit IN ('currency', 'percent', 'count', 'ratio')),
+            owner TEXT,
+            target_date TEXT,
+            description TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_investor_kpis_blueprint_category
+            ON investor_kpis(blueprint_id, category, target_date);
+
         CREATE TABLE IF NOT EXISTS audit_events (
             id TEXT PRIMARY KEY,
             actor_role TEXT NOT NULL,
@@ -316,3 +344,100 @@ class Repository:
                     "SELECT COUNT(*) FROM campaign_briefs WHERE status IN ('approved', 'in_production')"
                 ).fetchone()[0],
             }
+
+    def list_investor_blueprints(self, *, limit: int = 50, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
+        with self.connection() as connection:
+            total = connection.execute("SELECT COUNT(*) FROM investor_blueprints").fetchone()[0]
+            rows = connection.execute(
+                "SELECT * FROM investor_blueprints ORDER BY as_of_date DESC, created_at DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
+        return [self._serialize_row(row) for row in rows], total
+
+    def get_investor_blueprint(self, blueprint_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute("SELECT * FROM investor_blueprints WHERE id = ?", (blueprint_id,)).fetchone()
+        return self._serialize_row(row) if row else None
+
+    def create_investor_blueprint(self, values: dict[str, Any]) -> dict[str, Any]:
+        blueprint_id = str(uuid.uuid4())
+        timestamp = utc_now()
+        columns = ["id", *values.keys(), "created_at", "updated_at"]
+        with self.connection() as connection:
+            connection.execute(
+                f"INSERT INTO investor_blueprints ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})",
+                [blueprint_id, *values.values(), timestamp, timestamp],
+            )
+        blueprint = self.get_investor_blueprint(blueprint_id)
+        assert blueprint is not None
+        return blueprint
+
+    def update_investor_blueprint(
+        self, blueprint_id: str, values: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        if not values:
+            return self.get_investor_blueprint(blueprint_id)
+        values["updated_at"] = utc_now()
+        assignment = ", ".join(f"{column} = ?" for column in values)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                f"UPDATE investor_blueprints SET {assignment} WHERE id = ?",
+                [*values.values(), blueprint_id],
+            )
+            if cursor.rowcount == 0:
+                return None
+        return self.get_investor_blueprint(blueprint_id)
+
+    def list_investor_kpis(self, blueprint_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM investor_kpis
+                WHERE blueprint_id = ?
+                ORDER BY CASE category
+                    WHEN 'revenue' THEN 1
+                    WHEN 'retention' THEN 2
+                    WHEN 'growth' THEN 3
+                    ELSE 4
+                END, target_date ASC, created_at ASC
+                """,
+                (blueprint_id,),
+            ).fetchall()
+        return [self._serialize_row(row) for row in rows]
+
+    def get_investor_kpi(self, blueprint_id: str, kpi_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM investor_kpis WHERE blueprint_id = ? AND id = ?",
+                (blueprint_id, kpi_id),
+            ).fetchone()
+        return self._serialize_row(row) if row else None
+
+    def create_investor_kpi(self, blueprint_id: str, values: dict[str, Any]) -> dict[str, Any]:
+        kpi_id = str(uuid.uuid4())
+        timestamp = utc_now()
+        columns = ["id", "blueprint_id", *values.keys(), "created_at", "updated_at"]
+        with self.connection() as connection:
+            connection.execute(
+                f"INSERT INTO investor_kpis ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})",
+                [kpi_id, blueprint_id, *values.values(), timestamp, timestamp],
+            )
+        kpi = self.get_investor_kpi(blueprint_id, kpi_id)
+        assert kpi is not None
+        return kpi
+
+    def update_investor_kpi(
+        self, blueprint_id: str, kpi_id: str, values: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        if not values:
+            return self.get_investor_kpi(blueprint_id, kpi_id)
+        values["updated_at"] = utc_now()
+        assignment = ", ".join(f"{column} = ?" for column in values)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                f"UPDATE investor_kpis SET {assignment} WHERE blueprint_id = ? AND id = ?",
+                [*values.values(), blueprint_id, kpi_id],
+            )
+            if cursor.rowcount == 0:
+                return None
+        return self.get_investor_kpi(blueprint_id, kpi_id)

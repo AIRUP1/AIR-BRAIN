@@ -32,8 +32,19 @@ PYTHONPATH=. pytest -q
 | `/v1/public/lead-intake` | Consent-aware website intake | Public only when explicitly enabled |
 | `/v1/webhooks/github` | Signed GitHub event receipt and duplicate-delivery protection | GitHub only; `X-Hub-Signature-256` required |
 | `/v1/workspace/*` | Leads, partners, tasks, Lending Desk, Creative Launchpad | `X-API-Key` required |
+| `/v1/workspace/investor-blueprints/*` | KPI blueprints, print-ready investor export, and same-origin admin UI | Viewer read; admin create/update |
 
 The service accepts three API-key roles: **viewer** (read), **operator** (read/write), and **admin** (read/write/audit trail). Browser clients must never contain a workspace key.
+
+## Investor blueprint preset
+
+The investor blueprint extension keeps investor-facing KPI reporting tied to accountable workspace records rather than a manually maintained deck. It supports revenue, retention, growth, and operational KPIs with actual values, targets, units, target dates, and accountable owners.
+
+- `GET /v1/workspace/investor-blueprints/{blueprint_id}` returns calculated target attainment, variance, and the color-ready `achieved`, `on_track`, `watch`, or `at_risk` status for every KPI.
+- `GET /v1/workspace/investor-blueprints/{blueprint_id}/export` returns a print-optimized one-page HTML preset with revenue, retention, and growth highlights, progress bars, and status indicators.
+- `GET /v1/workspace/investor-blueprints/{blueprint_id}/ui` renders the same preset with an administrator-only edit toggle for owners and target values. Configure `AIR_AGENTS_WORKSPACE_UI_SESSION_SECRET` and place this route behind the approved same-origin authentication handoff; the browser receives only a short-lived, `HttpOnly`, `SameSite=Strict` session and never a workspace API key.
+
+Only the **admin** role can change blueprint metadata, KPI targets, or accountable owners. Every protected change generates an append-only audit event. The planned durable schema is [20260927_000002_investor_blueprints.sql](supabase/migrations/20260927_000002_investor_blueprints.sql); it is included for review and has **not** been applied.
 
 ## Deployment and DNS
 

@@ -10,12 +10,13 @@ import secrets
 import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import APIKeyHeader
 
 from .config import ConfigurationError, Settings, get_settings
@@ -25,6 +26,7 @@ from .github_webhooks import (
     summarize_github_event,
     verify_github_signature,
 )
+from .investor_blueprint import build_snapshot, present_kpi, render_investor_blueprint
 from .repository import Repository
 from .schemas import (
     CampaignBriefCreate,
@@ -32,6 +34,13 @@ from .schemas import (
     CampaignBriefUpdate,
     GitHubWebhookResponse,
     HealthResponse,
+    InvestorBlueprintCreate,
+    InvestorBlueprintResponse,
+    InvestorBlueprintSnapshotResponse,
+    InvestorBlueprintUpdate,
+    InvestorKpiCreate,
+    InvestorKpiResponse,
+    InvestorKpiUpdate,
     LeadCreate,
     LeadIntakeRequest,
     LeadResponse,
@@ -49,6 +58,12 @@ from .schemas import (
     TaskCreate,
     TaskResponse,
     TaskUpdate,
+)
+from .workspace_sessions import (
+    UI_SESSION_COOKIE,
+    UI_SESSION_TTL_SECONDS,
+    issue_workspace_session,
+    verify_workspace_session,
 )
 
 logger = logging.getLogger("air_agents_api")
@@ -92,8 +107,16 @@ SERVICE_CATALOG = [
 class Principal:
     """Authenticated workspace identity, intentionally limited to a role."""
 
-    def __init__(self, role: RoleName):
+    def __init__(
+        self,
+        role: RoleName,
+        *,
+        auth_source: Literal["api_key", "session"] = "api_key",
+        csrf_token: str | None = None,
+    ):
         self.role = role
+        self.auth_source = auth_source
+        self.csrf_token = csrf_token
 
 
 ROLE_ORDER = {"viewer": 1, "operator": 2, "admin": 3}
@@ -107,6 +130,10 @@ def _serializable_values(model: Any, *, exclude_unset: bool = False) -> dict[str
     for key, value in list(values.items()):
         if isinstance(value, datetime):
             values[key] = value.astimezone(UTC).isoformat()
+        elif isinstance(value, date):
+            values[key] = value.isoformat()
+        elif isinstance(value, Decimal):
+            values[key] = float(value)
         elif isinstance(value, list):
             values[key] = json.dumps(value, separators=(",", ":")) if key == "channels" else value
         elif hasattr(value, "__str__") and value.__class__.__name__ == "EmailStr":
@@ -157,6 +184,7 @@ def create_app(
             {"name": "System", "description": "Service availability and discovery."},
             {"name": "Public intake", "description": "Low-friction, consent-aware website intake."},
             {"name": "Workspace", "description": "Authenticated operating records."},
+            {"name": "Investor reporting", "description": "Role-aware KPI blueprints and investor-ready exports."},
             {"name": "Compliance", "description": "Role-restricted audit trail."},
             {"name": "Webhooks", "description": "Signed machine-to-machine provider deliveries."},
         ],
@@ -170,7 +198,7 @@ def create_app(
         allow_origins=settings.cors_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
-        allow_headers=["Content-Type", "X-API-Key", "X-Request-ID"],
+        allow_headers=["Content-Type", "X-API-Key", "X-CSRF-Token", "X-Request-ID"],
         expose_headers=["X-Request-ID"],
         max_age=600,
     )
@@ -207,7 +235,7 @@ def create_app(
         logger.error("Invalid service configuration")
         return JSONResponse(status_code=500, content={"detail": str(exc)})
 
-    async def get_principal(api_key: str | None = Depends(api_key_scheme)) -> Principal:
+    def principal_from_api_key(api_key: str | None) -> Principal:
         if not settings.api_keys:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -221,6 +249,31 @@ def create_app(
             )
         return Principal(settings.api_keys[api_key])
 
+    async def get_principal(api_key: str | None = Depends(api_key_scheme)) -> Principal:
+        return principal_from_api_key(api_key)
+
+    async def get_blueprint_principal(
+        request: Request,
+        api_key: str | None = Depends(api_key_scheme),
+    ) -> Principal:
+        """Allow the investor UI to use a short-lived HttpOnly session, never a browser-visible API key."""
+
+        if api_key:
+            return principal_from_api_key(api_key)
+        if settings.workspace_ui_session_secret:
+            session = verify_workspace_session(
+                request.cookies.get(UI_SESSION_COOKIE), settings.workspace_ui_session_secret
+            )
+            if session:
+                return Principal(
+                    session["role"], auth_source="session", csrf_token=session["csrf_token"]
+                )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Valid workspace authentication required.",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+
     def require_role(minimum_role: RoleName):
         async def dependency(principal: Principal = Depends(get_principal)) -> Principal:
             if ROLE_ORDER[principal.role] < ROLE_ORDER[minimum_role]:
@@ -228,6 +281,29 @@ def create_app(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="This API key does not have permission for that action.",
                 )
+            return principal
+
+        return dependency
+
+    def require_blueprint_role(minimum_role: RoleName, *, csrf_protected: bool = False):
+        async def dependency(
+            request: Request,
+            principal: Principal = Depends(get_blueprint_principal),
+        ) -> Principal:
+            if ROLE_ORDER[principal.role] < ROLE_ORDER[minimum_role]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This workspace identity does not have permission for that action.",
+                )
+            if csrf_protected and principal.auth_source == "session":
+                supplied_token = request.headers.get("X-CSRF-Token")
+                if not supplied_token or not principal.csrf_token or not secrets.compare_digest(
+                    supplied_token, principal.csrf_token
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="A valid same-origin CSRF token is required.",
+                    )
             return principal
 
         return dependency
@@ -484,6 +560,184 @@ def create_app(
             raise _not_found("Campaign brief")
         repository.record_audit(actor_role=principal.role, action="updated", entity_type="campaign_brief", entity_id=brief_id)
         return campaign
+
+    def investor_snapshot_or_404(blueprint_id: str) -> dict[str, Any]:
+        blueprint = repository.get_investor_blueprint(blueprint_id)
+        if not blueprint:
+            raise _not_found("Investor blueprint")
+        return build_snapshot(blueprint, repository.list_investor_kpis(blueprint_id))
+
+    @app.get(
+        "/v1/workspace/investor-blueprints",
+        tags=["Investor reporting"],
+        response_model=Page,
+    )
+    async def list_investor_blueprints(
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+        _: Principal = Depends(require_blueprint_role("viewer")),
+    ) -> Page:
+        items, total = repository.list_investor_blueprints(limit=limit, offset=offset)
+        return _page(items, total, limit, offset)
+
+    @app.post(
+        "/v1/workspace/investor-blueprints",
+        tags=["Investor reporting"],
+        response_model=InvestorBlueprintResponse,
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_investor_blueprint(
+        payload: InvestorBlueprintCreate,
+        principal: Principal = Depends(require_blueprint_role("admin", csrf_protected=True)),
+    ) -> dict[str, Any]:
+        blueprint = repository.create_investor_blueprint(_serializable_values(payload))
+        repository.record_audit(
+            actor_role=principal.role,
+            action="created",
+            entity_type="investor_blueprint",
+            entity_id=blueprint["id"],
+            metadata={"title": blueprint["title"]},
+        )
+        return blueprint
+
+    @app.get(
+        "/v1/workspace/investor-blueprints/{blueprint_id}",
+        tags=["Investor reporting"],
+        response_model=InvestorBlueprintSnapshotResponse,
+    )
+    async def get_investor_blueprint(
+        blueprint_id: str,
+        _: Principal = Depends(require_blueprint_role("viewer")),
+    ) -> dict[str, Any]:
+        return investor_snapshot_or_404(blueprint_id)
+
+    @app.patch(
+        "/v1/workspace/investor-blueprints/{blueprint_id}",
+        tags=["Investor reporting"],
+        response_model=InvestorBlueprintResponse,
+    )
+    async def update_investor_blueprint(
+        blueprint_id: str,
+        payload: InvestorBlueprintUpdate,
+        principal: Principal = Depends(require_blueprint_role("admin", csrf_protected=True)),
+    ) -> dict[str, Any]:
+        blueprint = repository.update_investor_blueprint(
+            blueprint_id, _serializable_values(payload, exclude_unset=True)
+        )
+        if not blueprint:
+            raise _not_found("Investor blueprint")
+        repository.record_audit(
+            actor_role=principal.role,
+            action="updated",
+            entity_type="investor_blueprint",
+            entity_id=blueprint_id,
+            metadata={"changed_fields": sorted(payload.model_fields_set)},
+        )
+        return blueprint
+
+    @app.post(
+        "/v1/workspace/investor-blueprints/{blueprint_id}/kpis",
+        tags=["Investor reporting"],
+        response_model=InvestorKpiResponse,
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_investor_kpi(
+        blueprint_id: str,
+        payload: InvestorKpiCreate,
+        principal: Principal = Depends(require_blueprint_role("admin", csrf_protected=True)),
+    ) -> dict[str, Any]:
+        if not repository.get_investor_blueprint(blueprint_id):
+            raise _not_found("Investor blueprint")
+        kpi = repository.create_investor_kpi(blueprint_id, _serializable_values(payload))
+        repository.record_audit(
+            actor_role=principal.role,
+            action="created",
+            entity_type="investor_kpi",
+            entity_id=kpi["id"],
+            metadata={"blueprint_id": blueprint_id, "category": kpi["category"]},
+        )
+        return present_kpi(kpi)
+
+    @app.patch(
+        "/v1/workspace/investor-blueprints/{blueprint_id}/kpis/{kpi_id}",
+        tags=["Investor reporting"],
+        response_model=InvestorKpiResponse,
+    )
+    async def update_investor_kpi(
+        blueprint_id: str,
+        kpi_id: str,
+        payload: InvestorKpiUpdate,
+        principal: Principal = Depends(require_blueprint_role("admin", csrf_protected=True)),
+    ) -> dict[str, Any]:
+        if not repository.get_investor_blueprint(blueprint_id):
+            raise _not_found("Investor blueprint")
+        kpi = repository.update_investor_kpi(
+            blueprint_id, kpi_id, _serializable_values(payload, exclude_unset=True)
+        )
+        if not kpi:
+            raise _not_found("Investor KPI")
+        repository.record_audit(
+            actor_role=principal.role,
+            action="updated",
+            entity_type="investor_kpi",
+            entity_id=kpi_id,
+            metadata={"blueprint_id": blueprint_id, "changed_fields": sorted(payload.model_fields_set)},
+        )
+        return present_kpi(kpi)
+
+    @app.get(
+        "/v1/workspace/investor-blueprints/{blueprint_id}/export",
+        tags=["Investor reporting"],
+        response_class=HTMLResponse,
+    )
+    async def export_investor_blueprint(
+        blueprint_id: str,
+        _: Principal = Depends(require_blueprint_role("viewer")),
+    ) -> HTMLResponse:
+        snapshot = investor_snapshot_or_404(blueprint_id)
+        return HTMLResponse(render_investor_blueprint(snapshot, can_edit=False, export_mode=True))
+
+    @app.get(
+        "/v1/workspace/investor-blueprints/{blueprint_id}/ui",
+        tags=["Investor reporting"],
+        response_class=HTMLResponse,
+        include_in_schema=False,
+    )
+    async def investor_blueprint_ui(
+        blueprint_id: str,
+        principal: Principal = Depends(require_blueprint_role("viewer")),
+    ) -> HTMLResponse:
+        if not settings.workspace_ui_session_secret:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Workspace UI sessions are not configured for this environment.",
+            )
+        snapshot = investor_snapshot_or_404(blueprint_id)
+        session_token = None
+        csrf_token = principal.csrf_token
+        if principal.auth_source == "api_key":
+            session_token = issue_workspace_session(principal.role, settings.workspace_ui_session_secret)
+            verified_session = verify_workspace_session(session_token, settings.workspace_ui_session_secret)
+            assert verified_session is not None
+            csrf_token = verified_session["csrf_token"]
+        response = HTMLResponse(
+            render_investor_blueprint(
+                snapshot,
+                can_edit=principal.role == "admin",
+                csrf_token=csrf_token,
+            )
+        )
+        if session_token:
+            response.set_cookie(
+                key=UI_SESSION_COOKIE,
+                value=session_token,
+                max_age=UI_SESSION_TTL_SECONDS,
+                httponly=True,
+                secure=settings.is_production,
+                samesite="strict",
+                path="/v1/workspace/investor-blueprints",
+            )
+        return response
 
     @app.get("/v1/workspace/audit-events", tags=["Compliance"], response_model=Page)
     async def list_audit_events(

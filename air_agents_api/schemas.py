@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
@@ -209,6 +209,80 @@ class CampaignBriefResponse(APIModel):
     status: str
     created_at: datetime
     updated_at: datetime
+
+
+KpiCategory = Literal["revenue", "retention", "growth", "operations"]
+KpiUnit = Literal["currency", "percent", "count", "ratio"]
+KpiActualValue = Annotated[float, Field(ge=-1_000_000_000_000, le=1_000_000_000_000)]
+KpiTargetValue = Annotated[float, Field(gt=0, le=1_000_000_000_000)]
+
+
+class InvestorBlueprintCreate(APIModel):
+    """An accountable operating blueprint used by the investor export preset."""
+
+    title: ShortText
+    as_of_date: date
+    currency: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Z]{3}$")] = "USD"
+
+
+class InvestorBlueprintUpdate(APIModel):
+    title: ShortText | None = None
+    as_of_date: date | None = None
+    currency: Annotated[str | None, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Z]{3}$")] = None
+
+
+class InvestorBlueprintResponse(APIModel):
+    id: str
+    title: str
+    as_of_date: date
+    currency: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class InvestorKpiCreate(APIModel):
+    category: KpiCategory
+    label: ShortText
+    actual_value: KpiActualValue
+    target_value: KpiTargetValue
+    unit: KpiUnit
+    owner: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=120)] = None
+    target_date: date | None = None
+    description: OptionalText = None
+
+
+class InvestorKpiUpdate(APIModel):
+    category: KpiCategory | None = None
+    label: ShortText | None = None
+    actual_value: KpiActualValue | None = None
+    target_value: KpiTargetValue | None = None
+    unit: KpiUnit | None = None
+    owner: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=120)] = None
+    target_date: date | None = None
+    description: OptionalText = None
+
+
+class InvestorKpiResponse(APIModel):
+    id: str
+    blueprint_id: str
+    category: KpiCategory
+    label: str
+    actual_value: float
+    target_value: float
+    unit: KpiUnit
+    owner: str | None
+    target_date: date | None
+    description: str | None
+    created_at: datetime
+    updated_at: datetime
+    achievement_percent: float
+    progress_percent: float
+    variance: float
+    status: Literal["achieved", "on_track", "watch", "at_risk"]
+
+
+class InvestorBlueprintSnapshotResponse(InvestorBlueprintResponse):
+    kpis: list[InvestorKpiResponse]
 
 
 class Page(APIModel):

@@ -28,6 +28,7 @@ class Settings:
     api_keys: dict[str, Role]
     cors_origins: list[str]
     github_webhook_secret: str | None = None
+    workspace_ui_session_secret: str | None = None
     enable_public_intake: bool = False
     service_version: str = "1.0.0"
 
@@ -59,6 +60,14 @@ def _parse_api_keys(raw_value: str) -> dict[str, Role]:
     return keys
 
 
+def _optional_session_secret(raw_value: str | None) -> str | None:
+    if not raw_value:
+        return None
+    if len(raw_value) < 32:
+        raise ConfigurationError("AIR_AGENTS_WORKSPACE_UI_SESSION_SECRET must be at least 32 characters.")
+    return raw_value
+
+
 def get_settings() -> Settings:
     """Load validated settings without ever logging secrets."""
 
@@ -87,6 +96,7 @@ def get_settings() -> Settings:
         api_keys=_parse_api_keys(os.getenv("AIR_AGENTS_API_KEYS", "")),
         cors_origins=origins,
         github_webhook_secret=os.getenv("AIR_AGENTS_GITHUB_WEBHOOK_SECRET") or None,
+        workspace_ui_session_secret=_optional_session_secret(os.getenv("AIR_AGENTS_WORKSPACE_UI_SESSION_SECRET")),
         enable_public_intake=os.getenv("AIR_AGENTS_ENABLE_PUBLIC_INTAKE", "false").lower()
         in {"1", "true", "yes"},
     )

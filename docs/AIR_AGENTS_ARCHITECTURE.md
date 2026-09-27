@@ -99,6 +99,7 @@ The workspace is organized around accountable records—not unstructured chat hi
 | **Execution** | `tasks` | Assign next actions, due dates, blockers, and linked records | Assignee |
 | **Lending Desk** | `lending_cases` | Track business context, document readiness, and authorized coordination | Lending coordinator |
 | **Creative Launchpad** | `campaign_briefs` | Define objective, audience, message, channels, visual direction, and CTA | Creative / marketing owner |
+| **Investor Reporting** | `investor_blueprints`, `investor_kpis` | Track revenue, retention, growth, targets, status, and accountable owners | Administrator / finance owner |
 | **Accountability** | `audit_events` | Record creation and state changes by role | Administrator / compliance owner |
 
 > **Lending Desk boundary:** The system is an operational coordination tool. It must not generate a credit offer, make a lending or underwriting decision, give financial advice, or promise funding.
@@ -115,6 +116,7 @@ erDiagram
     PARTNERS ||--o{ TASKS : "drives shared work"
     LENDING_CASES ||--o{ TASKS : "drives readiness actions"
     CAMPAIGN_BRIEFS ||--o{ TASKS : "drives production"
+    INVESTOR_BLUEPRINTS ||--o{ INVESTOR_KPIS : "contains measured targets"
     LEADS ||--o{ AUDIT_EVENTS : "creates/updates"
     PARTNERS ||--o{ AUDIT_EVENTS : "creates/updates"
     LENDING_CASES ||--o{ AUDIT_EVENTS : "creates/updates"
@@ -165,7 +167,22 @@ erDiagram
       text objective
       jsonb channels
       text status
-      uuid owner_user_id FK
+        uuid owner_user_id FK
+    }
+    INVESTOR_BLUEPRINTS {
+      uuid id PK
+      text title
+      date as_of_date
+      text currency
+    }
+    INVESTOR_KPIS {
+      uuid id PK
+      uuid blueprint_id FK
+      text category
+      numeric actual_value
+      numeric target_value
+      text owner
+      date target_date
     }
     AUDIT_EVENTS {
       uuid id PK
@@ -241,6 +258,15 @@ The initial API includes static role-based keys for early private operation. The
 5. Supabase RLS independently limits record access.
 
 Static API keys can remain for restricted machine-to-machine connections, but should be rotated, stored in a secret manager, and never used by browser clients.
+
+### 6.4 Investor blueprint reporting
+
+Investor reporting is an internal workspace concern, not public portfolio content. The `investor_blueprints` and `investor_kpis` records keep actuals, targets, owner accountability, and milestone dates together. The API derives target attainment, variance, and a standardized **achieved / on-track / watch / at-risk** status at read time, then renders the one-page investor preset directly from those records.
+
+- Viewers may read a blueprint or its export; only administrators may create or modify blueprint/KPI records.
+- The interactive `/ui` view uses a short-lived, `HttpOnly`, `SameSite=Strict` session after a same-origin authenticated handoff. It does **not** put a workspace API key in browser JavaScript.
+- Session-backed updates require a per-session CSRF token and create an append-only audit event with only the changed field names.
+- The durable Supabase design is in `20260927_000002_investor_blueprints.sql`; it follows the existing RLS role model and is not applied until a project is explicitly selected.
 
 ---
 
