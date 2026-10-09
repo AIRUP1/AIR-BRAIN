@@ -24,3 +24,8 @@ without redialing finished numbers.
 Invalid/duplicate numbers and the do-not-call file are dropped; calls only go out 9am-8pm Mon-Sat in the lead's
 state timezone (`--ignore-hours` to override); ring-out (auto hang-up) after 5s. You remain responsible for TCPA/DNC
 compliance (B2B numbers can still be on the National DNC registry or be mobile numbers).
+
+## Getting the refresh token
+Create the Integration with redirect URI `http://localhost:3000/callback`, then run
+`python -m webex_batch_dialer.get_webex_token`, sign in as your Webex Calling user, and copy the
+printed `export` lines into your shell profile or secrets store. Never commit them.
