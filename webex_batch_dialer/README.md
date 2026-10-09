@@ -22,5 +22,5 @@ without redialing finished numbers.
 
 ## Safeguards
 Invalid/duplicate numbers and the do-not-call file are dropped; calls only go out 9am-8pm Mon-Sat in the lead's
-state timezone (`--ignore-hours` to override); ring-out after 45s. You remain responsible for TCPA/DNC
+state timezone (`--ignore-hours` to override); ring-out (auto hang-up) after 5s. You remain responsible for TCPA/DNC
 compliance (B2B numbers can still be on the National DNC registry or be mobile numbers).
