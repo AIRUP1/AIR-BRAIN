@@ -67,7 +67,9 @@ def load_call_list(path: str | Path, dnc: Iterable[str] = ()) -> tuple[list[Call
     records: list[CallRecord] = []
     warnings: list[str] = []
     with open(path, newline="", encoding="utf-8-sig") as fh:
-        for i, row in enumerate(csv.DictReader(fh), start=2):
+        for i, raw_row in enumerate(csv.DictReader(fh), start=2):
+            # Headers are matched case/space-insensitively: "Business Name" -> business_name
+            row = {re.sub(r"[^a-z0-9]+", "_", (k or "").strip().lower()).strip("_"): v for k, v in raw_row.items()}
             phone = normalize_e164(row.get("phone_e164") or row.get("phone") or "")
             name = row.get("business_name", "")
             if not phone:

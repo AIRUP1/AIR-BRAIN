@@ -69,3 +69,10 @@ def test_run_resume_and_sync(tmp_path):
     BatchDialer(c2, recs2, tmp_path / "s.jsonl", sleep=lambda s: None, enforce_hours=False).run()
     assert c2.dialed == []
     assert d.sync_history() == 1 and recs[0].duration_s == 61
+
+
+def test_headers_case_insensitive(tmp_path):
+    p = tmp_path / "x.csv"
+    p.write_text('"Business Name","Phone","City"\n"Acme","+18178286326","Fort Worth"\n')
+    recs, warns = load_call_list(p)
+    assert warns == [] and recs[0].business_name == "Acme" and recs[0].phone_e164 == "+18178286326"
