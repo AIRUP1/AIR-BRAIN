@@ -43,6 +43,12 @@ def main(argv=None):
             print(f"  {r.phone_e164}  {r.business_name}")
         return 0
 
+    have_refresh = all(os.environ.get(k) for k in ("WEBEX_CLIENT_ID", "WEBEX_CLIENT_SECRET", "WEBEX_REFRESH_TOKEN"))
+    if not (have_refresh or os.environ.get("WEBEX_ACCESS_TOKEN")):
+        print("error: set WEBEX_CLIENT_ID, WEBEX_CLIENT_SECRET and WEBEX_REFRESH_TOKEN "
+              "(or WEBEX_ACCESS_TOKEN). Run: python -m webex_batch_dialer.get_webex_token", file=sys.stderr)
+        return 2
+
     client = WebexClient(
         os.environ.get("WEBEX_CLIENT_ID"), os.environ.get("WEBEX_CLIENT_SECRET"),
         os.environ.get("WEBEX_REFRESH_TOKEN"), os.environ.get("WEBEX_ACCESS_TOKEN"),
