@@ -1,0 +1,43 @@
+name: Webex dialer (manual)
+
+# Manual only on purpose: every dial rings the signed-in Webex user's device, so run this
+# when you're at your phone/computer ready to take calls. Does not run on a schedule.
+on:
+  workflow_dispatch:
+    inputs:
+      inbox:
+        description: "Folder in the repo holding call-list CSVs (keep it in a PRIVATE repo)"
+        default: "dialer_inbox"
+      max_failures:
+        description: "Stop after this many failed dials in a row"
+        default: "5"
+
+permissions:
+  contents: read
+
+jobs:
+  dial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests pytest
+      - name: Test
+        run: PYTHONPATH=. pytest -q tests/test_webex_batch_dialer.py
+      - name: Run dialer (auto-log outcomes, one pass)
+        env:
+          WEBEX_CLIENT_ID: ${{ secrets.WEBEX_CLIENT_ID }}
+          WEBEX_CLIENT_SECRET: ${{ secrets.WEBEX_CLIENT_SECRET }}
+          WEBEX_REFRESH_TOKEN: ${{ secrets.WEBEX_REFRESH_TOKEN }}
+        run: |
+          PYTHONPATH=. python -m webex_batch_dialer auto "${{ github.event.inputs.inbox }}" --once --max-failures "${{ github.event.inputs.max_failures }}"
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dialer-results
+          path: ${{ github.event.inputs.inbox }}/results/
+          if-no-files-found: ignore

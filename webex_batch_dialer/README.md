@@ -44,3 +44,11 @@ python -m webex_batch_dialer auto inbox --once     # process what's there and ex
 
 Cron example (every 15 minutes, weekdays): `*/15 9-19 * * 1-6 cd /path/to/AIR-BRAIN && python -m webex_batch_dialer auto inbox --once`
 (set the `WEBEX_*` variables in the crontab or a wrapper script).
+
+## Run from GitHub Actions
+1. Repo -> Settings -> Secrets and variables -> Actions -> New repository secret. Add `WEBEX_CLIENT_ID`,
+   `WEBEX_CLIENT_SECRET`, `WEBEX_REFRESH_TOKEN` (values from `get_webex_token`). Never put them in files.
+2. Put call-list CSVs in `dialer_inbox/` (only in a **private** repo; they contain business phone numbers).
+3. Actions -> "Webex dialer (manual)" -> Run workflow. It runs one pass and uploads `dialer-results`.
+The workflow is manual on purpose (each dial rings your Webex device). Webex refresh tokens expire after
+about 90 days, so re-run `get_webex_token` and update the secret when the run reports an auth error.
