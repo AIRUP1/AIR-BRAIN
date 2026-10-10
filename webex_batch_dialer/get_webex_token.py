@@ -7,6 +7,7 @@ Credentials are read from WEBEX_CLIENT_ID / WEBEX_CLIENT_SECRET or prompted for;
 the refresh token is printed to this terminal only (nothing is written to disk).
 """
 
+import argparse
 import getpass
 import os
 import secrets
@@ -20,7 +21,21 @@ REDIRECT = "http://localhost:3000/callback"
 SCOPES = "spark:calls_write spark:calls_read"
 
 
-def main() -> int:
+def parse_pasted(text: str) -> dict:
+    """Accept the full redirected URL (http://localhost:3000/callback?code=...&state=...) or a bare code."""
+    text = text.strip()
+    if "code=" in text:
+        q = parse_qs(urlparse(text).query)
+        return {k: v[0] for k, v in q.items()}
+    return {"code": text}
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--manual", action="store_true",
+                    help="no local server/browser: open the link anywhere, then paste the redirected URL back here")
+    args = ap.parse_args(argv)
+    manual = args.manual or bool(os.environ.get("CODESPACES") or os.environ.get("GITHUB_CODESPACE_TOKEN"))
     client_id = os.environ.get("WEBEX_CLIENT_ID") or input("Client ID: ").strip()
     client_secret = os.environ.get("WEBEX_CLIENT_SECRET") or getpass.getpass("Client Secret: ").strip()
     state = secrets.token_urlsafe(16)
@@ -41,12 +56,18 @@ def main() -> int:
         def log_message(self, *a):
             pass
 
-    print("Opening browser to sign in. If it does not open, visit:\n", url)
-    webbrowser.open(url)
-    srv = HTTPServer(("localhost", 3000), Handler)
-    while "code" not in got and "error" not in got:
-        srv.handle_request()
-    if got.get("state") != state or "code" not in got:
+    if manual:
+        print("1) Open this link in your own browser and sign in:\n\n" + url + "\n")
+        print("2) After you accept, the browser goes to a http://localhost:3000/callback?... page that will")
+        print("   say it can't connect. That is expected. Copy the FULL address from the address bar.")
+        got.update(parse_pasted(input("3) Paste that address here: ")))
+    else:
+        print("Opening browser to sign in. If it does not open, visit:\n", url)
+        webbrowser.open(url)
+        srv = HTTPServer(("localhost", 3000), Handler)
+        while "code" not in got and "error" not in got:
+            srv.handle_request()
+    if (got.get("state") and got["state"] != state) or "code" not in got:
         print("Sign-in failed:", got.get("error_description") or got.get("error") or "state mismatch")
         return 1
     r = requests.post("https://webexapis.com/v1/access_token", data={

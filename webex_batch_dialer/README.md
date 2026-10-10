@@ -26,6 +26,8 @@ state timezone (`--ignore-hours` to override); ring-out (auto hang-up) after 5s.
 compliance (B2B numbers can still be on the National DNC registry or be mobile numbers).
 
 ## Getting the refresh token
+In a cloud terminal (Codespaces, github.dev, SSH) use `python -m webex_batch_dialer.get_webex_token --manual`: open the printed link in your own browser, sign in, then paste the address of the page it lands on (it will say it can't connect; that's expected).
+
 Create the Integration with redirect URI `http://localhost:3000/callback`, then run
 `python -m webex_batch_dialer.get_webex_token`, sign in as your Webex Calling user, and copy the
 printed `export` lines into your shell profile or secrets store. Never commit them.

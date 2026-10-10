@@ -93,3 +93,9 @@ def test_inbox_auto_run_and_failure_stop(tmp_path, monkeypatch):
     import pytest
     with pytest.raises(automation.TooManyFailures):
         automation.run_inbox(bad, inbox, once=True, sleep=lambda s: None, max_failures=3, enforce_hours=False)
+
+
+def test_parse_pasted_redirect():
+    from webex_batch_dialer.get_webex_token import parse_pasted
+    assert parse_pasted("http://localhost:3000/callback?code=abc123&state=xyz") == {"code": "abc123", "state": "xyz"}
+    assert parse_pasted("  abc123 ") == {"code": "abc123"}
