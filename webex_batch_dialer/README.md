@@ -29,3 +29,18 @@ compliance (B2B numbers can still be on the National DNC registry or be mobile n
 Create the Integration with redirect URI `http://localhost:3000/callback`, then run
 `python -m webex_batch_dialer.get_webex_token`, sign in as your Webex Calling user, and copy the
 printed `export` lines into your shell profile or secrets store. Never commit them.
+
+## Hands-off mode (`auto`)
+```bash
+mkdir inbox                      # drop call-list CSVs here (any headers like "Business Name", "Phone")
+python -m webex_batch_dialer auto inbox            # keeps running; picks up new files as they appear
+python -m webex_batch_dialer auto inbox --once     # process what's there and exit (for cron)
+```
+- Dials only 9a-8p CT Mon-Sat and waits otherwise; resumes mid-file the next day.
+- Logs outcomes automatically from Webex state (answered = connected, otherwise no_answer). Notes can be added later.
+- Finished files move to `inbox/done/`; results are in `inbox/results/<file>.results.csv`.
+- Stops with exit code 3 if 5 dials in a row fail (`--max-failures N`), e.g. an expired token or a Webex outage.
+- A person still takes the calls: Webex rings your device and you talk when someone picks up.
+
+Cron example (every 15 minutes, weekdays): `*/15 9-19 * * 1-6 cd /path/to/AIR-BRAIN && python -m webex_batch_dialer auto inbox --once`
+(set the `WEBEX_*` variables in the crontab or a wrapper script).

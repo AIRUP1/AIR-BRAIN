@@ -20,10 +20,37 @@ def prompt_disposition(r):
     return d, input("note> ").strip() if d else ""
 
 
+def build_client():
+    have = all(os.environ.get(k) for k in ("WEBEX_CLIENT_ID", "WEBEX_CLIENT_SECRET", "WEBEX_REFRESH_TOKEN"))
+    if not (have or os.environ.get("WEBEX_ACCESS_TOKEN")):
+        print("error: set WEBEX_CLIENT_ID, WEBEX_CLIENT_SECRET and WEBEX_REFRESH_TOKEN "
+              "(or WEBEX_ACCESS_TOKEN). Run: python -m webex_batch_dialer.get_webex_token", file=sys.stderr)
+        return None
+    return WebexClient(os.environ.get("WEBEX_CLIENT_ID"), os.environ.get("WEBEX_CLIENT_SECRET"),
+                       os.environ.get("WEBEX_REFRESH_TOKEN"), os.environ.get("WEBEX_ACCESS_TOKEN"))
+
+
+def run_auto(a, dnc):
+    from .automation import TooManyFailures, run_inbox
+    client = build_client()
+    if client is None:
+        return 2
+    try:
+        run_inbox(client, a.call_list, dnc, max_failures=a.max_failures, once=a.once)
+    except TooManyFailures as e:
+        print("stopped:", e, file=sys.stderr)
+        return 3
+    except KeyboardInterrupt:
+        return 0
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="webex_batch_dialer")
-    p.add_argument("command", choices=["run", "sync"])
-    p.add_argument("call_list")
+    p.add_argument("command", choices=["run", "sync", "auto"])
+    p.add_argument("call_list", help="CSV file (run/sync) or inbox folder (auto)")
+    p.add_argument("--max-failures", type=int, default=5, help="auto: stop after this many failed dials in a row")
+    p.add_argument("--once", action="store_true", help="auto: process the inbox once and exit (for cron)")
     p.add_argument("--dnc", help="file with one number per line")
     p.add_argument("--limit", type=int)
     p.add_argument("--state", default="dialer_state.jsonl")
@@ -34,6 +61,8 @@ def main(argv=None):
     a = p.parse_args(argv)
 
     dnc = Path(a.dnc).read_text().split() if a.dnc else []
+    if a.command == "auto":
+        return run_auto(a, dnc)
     records, warnings = load_call_list(a.call_list, dnc)
     for w in warnings:
         print("warn:", w, file=sys.stderr)

@@ -76,3 +76,20 @@ def test_headers_case_insensitive(tmp_path):
     p.write_text('"Business Name","Phone","City"\n"Acme","+18178286326","Fort Worth"\n')
     recs, warns = load_call_list(p)
     assert warns == [] and recs[0].business_name == "Acme" and recs[0].phone_e164 == "+18178286326"
+
+
+def test_inbox_auto_run_and_failure_stop(tmp_path, monkeypatch):
+    from webex_batch_dialer import automation
+    monkeypatch.setattr(automation, "window_open", lambda now=None: True)
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    (inbox / "a.csv").write_text("Business Name,Phone\nA,+12144402422\nB,+14698919938\n")
+    res = automation.run_inbox(FakeClient(), inbox, once=True, sleep=lambda s: None, enforce_hours=False)
+    assert res[0]["called"] == 2 and res[0]["pending"] == 0
+    assert (inbox / "done" / "a.csv").exists() and (inbox / "results" / "a.results.csv").exists()
+
+    (inbox / "b.csv").write_text("Business Name,Phone\n" + "".join(f"X{i},+1214555{i:04d}\n" for i in range(8)))
+    bad = FakeClient(fail={f"+1214555{i:04d}" for i in range(8)})
+    import pytest
+    with pytest.raises(automation.TooManyFailures):
+        automation.run_inbox(bad, inbox, once=True, sleep=lambda s: None, max_failures=3, enforce_hours=False)
