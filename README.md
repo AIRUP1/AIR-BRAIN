@@ -59,9 +59,7 @@ The reviewed durable-data foundation is in [supabase/migrations/20260925_000001_
 The project retains the read-only, owner-authorized Instagram Organic Growth Toolkit and its original tests. It does not scrape or publish to Instagram.
 
 ```bash
-python instagram_organic_growth_toolkit.py \
-  --input examples/instagram_metrics.example.json \
-  --niche "home fitness" \
-  --keywords "strength training,workout routine" \
-  --report reports/instagram_growth_report.json
-```
+python cd /workspaces/AIR-BRAIN
+git checkout claude/new-business-call-list-transfer-254ui3
+pip install requests
+ls check
