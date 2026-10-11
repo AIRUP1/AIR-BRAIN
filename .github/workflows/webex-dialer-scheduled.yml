@@ -33,7 +33,7 @@ jobs:
           WEBEX_CLIENT_SECRET: ${{ secrets.WEBEX_CLIENT_SECRET }}
           WEBEX_REFRESH_TOKEN: ${{ secrets.WEBEX_REFRESH_TOKEN }}
         run: |
-          PYTHONPATH=. python -m webex_batch_dialer auto dialer_inbox --once --batch-size "${{ vars.DIALER_BATCH || '10' }}" --max-failures 3
+          PYTHONPATH=. python -m webex_batch_dialer auto dialer_inbox --once --batch-size "${{ vars.DIALER_BATCH || '10' }}" --max-failures 3 --gap "${{ vars.DIALER_GAP || '2' }}"
       - name: Save progress (so nobody is called twice)
         if: always()
         run: |

@@ -65,3 +65,9 @@ Each dial rings your Webex device, so only turn it on while you can take the cal
 ## Call history from Webex
 `python -m webex_batch_dialer history --out webex_call_history.csv` exports your placed, received and missed
 Webex calls (number in E.164, time, duration) so you can see what actually went through. Needs `spark:calls_read`.
+
+## Speed
+Time per lead = ring time + wrap-up + `--gap`. Defaults: `--gap 2` (was 5), `--poll 1`, `--ring-timeout 5`.
+`--fast` uses 0.5s gap/poll. Faster polling makes more Webex API calls (limit is retried automatically), and a
+short gap leaves little time to finish notes before the next call rings. In auto mode notes are skipped, so
+`auto --fast` is the quickest. In the scheduled workflow set repo variables `DIALER_GAP` and `DIALER_BATCH`.

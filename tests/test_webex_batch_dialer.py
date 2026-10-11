@@ -127,3 +127,12 @@ def test_export_history(tmp_path):
     assert export_history(H(), out) == 3
     rows = list(csv.reader(out.open()))
     assert rows[0][:3] == ["type", "name", "phone_e164"] and rows[1][2] == "+12144402422"
+
+
+def test_timing_flags(monkeypatch):
+    import argparse
+    from webex_batch_dialer.__main__ import timing
+    ns = argparse.Namespace(gap=2.0, poll=1.0, ring_timeout=5.0, fast=False)
+    assert timing(ns) == {"gap_seconds": 2.0, "poll_seconds": 1.0, "ring_timeout": 5.0}
+    ns.fast = True
+    assert timing(ns)["gap_seconds"] == 0.5 and timing(ns)["poll_seconds"] == 0.5

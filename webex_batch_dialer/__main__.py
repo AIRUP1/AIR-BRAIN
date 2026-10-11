@@ -30,13 +30,18 @@ def build_client():
                        os.environ.get("WEBEX_REFRESH_TOKEN"), os.environ.get("WEBEX_ACCESS_TOKEN"))
 
 
+def timing(a):
+    gap, poll = (0.5, 0.5) if a.fast else (a.gap, a.poll)
+    return {"gap_seconds": gap, "poll_seconds": poll, "ring_timeout": a.ring_timeout}
+
+
 def run_auto(a, dnc):
     from .automation import TooManyFailures, run_inbox
     client = build_client()
     if client is None:
         return 2
     try:
-        run_inbox(client, a.call_list, dnc, max_failures=a.max_failures, once=a.once, batch_size=a.batch_size)
+        run_inbox(client, a.call_list, dnc, max_failures=a.max_failures, once=a.once, batch_size=a.batch_size, **timing(a))
     except TooManyFailures as e:
         print("stopped:", e, file=sys.stderr)
         return 3
@@ -51,6 +56,10 @@ def main(argv=None):
     p.add_argument("call_list", nargs="?", default="", help="CSV file (run/sync) or inbox folder (auto); not needed for history")
     p.add_argument("--max-failures", type=int, default=5, help="auto: stop after this many failed dials in a row")
     p.add_argument("--batch-size", type=int, help="auto: max calls per pass (leave the rest for the next scheduled pass)")
+    p.add_argument("--gap", type=float, default=2.0, help="seconds to pause between calls (default 2, was 5)")
+    p.add_argument("--poll", type=float, default=1.0, help="seconds between call-state checks (default 1)")
+    p.add_argument("--ring-timeout", type=float, default=5.0, help="hang up if unanswered after this many seconds (default 5)")
+    p.add_argument("--fast", action="store_true", help="shortcut for --gap 0.5 --poll 0.5 (watch for Webex rate limits)")
     p.add_argument("--once", action="store_true", help="auto: process the inbox once and exit (for cron)")
     p.add_argument("--dnc", help="file with one number per line")
     p.add_argument("--limit", type=int)
@@ -92,7 +101,7 @@ def main(argv=None):
         os.environ.get("WEBEX_REFRESH_TOKEN"), os.environ.get("WEBEX_ACCESS_TOKEN"),
     )
     d = BatchDialer(client, records, a.state, None if a.no_prompt else prompt_disposition,
-                    enforce_hours=not a.ignore_hours)
+                    enforce_hours=not a.ignore_hours, **timing(a))
     if a.command == "run":
         d.run(a.limit)
     else:

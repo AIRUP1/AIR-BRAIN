@@ -102,9 +102,9 @@ class BatchDialer:
         records: list[CallRecord],
         state_file: str | Path = "dialer_state.jsonl",
         ask_disposition: Callable[[CallRecord], tuple[str, str]] | None = None,
-        gap_seconds: float = 5,
+        gap_seconds: float = 2,
         ring_timeout: float = 5,
-        poll_seconds: float = 2,
+        poll_seconds: float = 1,
         sleep: Callable[[float], None] = time.sleep,
         enforce_hours: bool = True,
     ):
