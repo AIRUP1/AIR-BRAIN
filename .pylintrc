@@ -1,0 +1,35 @@
+[MASTER]
+ignore=venv,.venv,__pycache__
+jobs=0
+persistent=no
+
+[FORMAT]
+max-line-length=120
+
+[MESSAGES CONTROL]
+disable=
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-few-public-methods,
+    too-many-instance-attributes,
+    too-many-arguments,
+    too-many-positional-arguments,
+    too-many-locals,
+    too-many-branches,
+    too-many-return-statements,
+    too-many-statements,
+    broad-exception-caught,
+    duplicate-code,
+    import-outside-toplevel,
+    wrong-import-order,
+    ungrouped-imports,
+    no-else-return,
+    no-else-raise,
+    invalid-name,
+    redefined-outer-name,
+    logging-fstring-interpolation,
+    consider-using-f-string
+
+[REPORTS]
+score=no
