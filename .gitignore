@@ -206,3 +206,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# never commit call lists or dialer results
+dialer_inbox/
+dialer_state.jsonl
+dialer_results.csv
+webex_call_history.csv
