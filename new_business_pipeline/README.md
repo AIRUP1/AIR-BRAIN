@@ -1,7 +1,7 @@
 # New business lead pull
 
 Weekly job (GitHub Actions: `.github/workflows/new-business-weekly.yml`, Mondays 7am Central, or run it by hand)
-that pulls newly opened DFW outlets (Dallas, Collin, Denton, Tarrant, Rockwall counties) from the Texas
+that pulls newly opened DFW outlets (Dallas, Collin, Denton, Tarrant, Rockwall, Kaufman, Ellis, Parker, Johnson and Wise counties) from the Texas
 Comptroller's public sales-tax permit data and writes `data/new_businesses_<date>.csv` in the call-list format.
 
 - Keeps retail, food service, personal services and arts/rec; drops chains and home/apartment addresses.

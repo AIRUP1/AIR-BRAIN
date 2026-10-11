@@ -18,7 +18,8 @@ from datetime import date, timedelta
 from pathlib import Path
 
 API = "https://data.texas.gov/resource/jrea-zgmq.json"
-COUNTIES = {"057": "Dallas", "043": "Collin", "061": "Denton", "220": "Tarrant", "199": "Rockwall"}
+COUNTIES = {"057": "Dallas", "043": "Collin", "061": "Denton", "220": "Tarrant", "199": "Rockwall", "129": "Kaufman",
+            "070": "Ellis", "184": "Parker", "126": "Johnson", "249": "Wise"}
 KEEP_NAICS = ("44", "45", "72", "81", "71")  # retail, food service, personal services, arts/rec
 RESIDENTIAL = re.compile(r"\b(APT|UNIT|PO BOX|P O BOX|TRLR|LOT)\b|#\s*\d+[A-Z]?$", re.I)
 COMMERCIAL = re.compile(r"\b(STE|SUITE|BLDG|BLVD|PKWY|HWY|FWY|FM \d+|SH \d+|US \d+|IH ?\d+|EXPY|MAIN ST|AVE|PLZ|PLAZA|CENTER|TRL?)\b", re.I)
