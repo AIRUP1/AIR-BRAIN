@@ -114,3 +114,16 @@ def test_batch_size_caps_and_resumes(tmp_path, monkeypatch):
     r2 = automation.run_inbox(c2, inbox, once=True, batch_size=10, sleep=lambda s: None, enforce_hours=False)
     assert len(c2.dialed) == 3 and r2[0]["pending"] == 0 and (inbox / "done" / "c.csv").exists()
     assert not set(c1.dialed) & set(c2.dialed)  # nobody called twice
+
+
+def test_export_history(tmp_path):
+    from webex_batch_dialer.dialer import export_history
+
+    class H(FakeClient):
+        def call_history(self, t):
+            return [{"phoneNumber": "tel:+12144402422", "name": "Sip", "time": "2026-10-10T15:00:00Z", "duration": 61, "id": t}]
+
+    out = tmp_path / "h.csv"
+    assert export_history(H(), out) == 3
+    rows = list(csv.reader(out.open()))
+    assert rows[0][:3] == ["type", "name", "phone_e164"] and rows[1][2] == "+12144402422"

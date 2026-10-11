@@ -61,3 +61,7 @@ about 90 days, so re-run `get_webex_token` and update the secret when the run re
 It does nothing until you create the repo variable `DIALER_AUTORUN=true`. Delete it to stop.
 Finished files move to `dialer_inbox/done/`, results go to `dialer_inbox/results/`. Keep the repo private.
 Each dial rings your Webex device, so only turn it on while you can take the calls.
+
+## Call history from Webex
+`python -m webex_batch_dialer history --out webex_call_history.csv` exports your placed, received and missed
+Webex calls (number in E.164, time, duration) so you can see what actually went through. Needs `spark:calls_read`.

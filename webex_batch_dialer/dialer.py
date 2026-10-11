@@ -197,3 +197,19 @@ class BatchDialer:
             w.writerow(["business_name", "contact_name", "phone_e164", "email", "status", "disposition", "duration_s", "started_at", "note"])
             for r in self.records:
                 w.writerow([r.business_name, r.contact_name, r.phone_e164, r.email, r.status, r.disposition, r.duration_s, r.started_at, r.note])
+
+
+def export_history(client, path, kinds=("placed", "received", "missed")) -> int:
+    """Write the signed-in user's Webex call history (all kinds) to a CSV. Returns the number of rows."""
+    rows = []
+    for kind in kinds:
+        for it in client.call_history(kind):
+            num = (it.get("phoneNumber") or it.get("number") or "").replace("tel:", "")
+            rows.append([kind, it.get("name") or it.get("displayName") or "", normalize_e164(num) or num,
+                         it.get("time") or it.get("startTime") or it.get("created") or "", it.get("duration", ""), it.get("id", "")])
+    rows.sort(key=lambda r: str(r[3]), reverse=True)
+    with open(path, "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["type", "name", "phone_e164", "time", "duration_s", "webex_id"])
+        w.writerows(rows)
+    return len(rows)

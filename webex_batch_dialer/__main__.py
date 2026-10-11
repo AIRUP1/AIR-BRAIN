@@ -47,8 +47,8 @@ def run_auto(a, dnc):
 
 def main(argv=None):
     p = argparse.ArgumentParser(prog="webex_batch_dialer")
-    p.add_argument("command", choices=["run", "sync", "auto"])
-    p.add_argument("call_list", help="CSV file (run/sync) or inbox folder (auto)")
+    p.add_argument("command", choices=["run", "sync", "auto", "history"])
+    p.add_argument("call_list", nargs="?", default="", help="CSV file (run/sync) or inbox folder (auto); not needed for history")
     p.add_argument("--max-failures", type=int, default=5, help="auto: stop after this many failed dials in a row")
     p.add_argument("--batch-size", type=int, help="auto: max calls per pass (leave the rest for the next scheduled pass)")
     p.add_argument("--once", action="store_true", help="auto: process the inbox once and exit (for cron)")
@@ -64,6 +64,14 @@ def main(argv=None):
     dnc = Path(a.dnc).read_text().split() if a.dnc else []
     if a.command == "auto":
         return run_auto(a, dnc)
+    if a.command == "history":
+        from .dialer import export_history
+        client = build_client()
+        if client is None:
+            return 2
+        out = a.out if a.out != "dialer_results.csv" else "webex_call_history.csv"
+        print(f"{export_history(client, out)} calls -> {out}")
+        return 0
     records, warnings = load_call_list(a.call_list, dnc)
     for w in warnings:
         print("warn:", w, file=sys.stderr)
