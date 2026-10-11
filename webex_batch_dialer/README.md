@@ -71,3 +71,10 @@ Time per lead = ring time + wrap-up + `--gap`. Defaults: `--gap 2` (was 5), `--p
 `--fast` uses 0.5s gap/poll. Faster polling makes more Webex API calls (limit is retried automatically), and a
 short gap leaves little time to finish notes before the next call rings. In auto mode notes are skipped, so
 `auto --fast` is the quickest. In the scheduled workflow set repo variables `DIALER_GAP` and `DIALER_BATCH`.
+
+## Public repos
+The dialer workflows refuse to run when the repo is public, because they read call-list CSVs from
+`dialer_inbox/` and commit call results back. To use GitHub Actions, copy `webex_batch_dialer/`, `tests/test_webex_batch_dialer.py`
+and the two `webex-dialer*.yml` workflows into a **private** repo and add the `WEBEX_*` secrets there.
+Running locally with `python -m webex_batch_dialer auto <folder>` never touches GitHub, so it works from a public checkout
+as long as you do not commit the folder.
