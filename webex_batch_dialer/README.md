@@ -54,3 +54,10 @@ Cron example (every 15 minutes, weekdays): `*/15 9-19 * * 1-6 cd /path/to/AIR-BR
 3. Actions -> "Webex dialer (manual)" -> Run workflow. It runs one pass and uploads `dialer-results`.
 The workflow is manual on purpose (each dial rings your Webex device). Webex refresh tokens expire after
 about 90 days, so re-run `get_webex_token` and update the secret when the run reports an auth error.
+
+## Scheduled batches on GitHub (opt-in)
+`.github/workflows/webex-dialer-scheduled.yml` runs every 30 minutes, dials up to `DIALER_BATCH` leads
+(default 10) from `dialer_inbox/`, commits progress, and stops when everything is done.
+It does nothing until you create the repo variable `DIALER_AUTORUN=true`. Delete it to stop.
+Finished files move to `dialer_inbox/done/`, results go to `dialer_inbox/results/`. Keep the repo private.
+Each dial rings your Webex device, so only turn it on while you can take the calls.

@@ -29,19 +29,23 @@ def window_open(now: datetime | None = None) -> bool:
     return within_calling_hours("TX", now)
 
 
-def process_file(client: WebexClient, csv_path: Path, inbox: Path, dnc: list[str], max_failures: int,
+def process_file(client: WebexClient, csv_path: Path, inbox: Path, dnc: list[str], max_failures: int, budget: int | None = None,
                  sleep: Callable[[float], None] = time.sleep, enforce_hours: bool = True, **dialer_kw) -> dict:
     records, warnings = load_call_list(csv_path, dnc)
     state = inbox / "results" / f"{csv_path.stem}.state.jsonl"
     state.parent.mkdir(parents=True, exist_ok=True)
     d = BatchDialer(client, records, state, ask_disposition=None, sleep=sleep, enforce_hours=enforce_hours, **dialer_kw)
     streak = 0
+    placed = 0
     for r in d.records:
         if r.status != "pending":
             continue
+        if budget is not None and placed >= budget:
+            break  # per-pass cap reached: the rest waits for the next scheduled pass
         if enforce_hours and not window_open():
             break  # window closed mid-file: resume next time (state file remembers who is done)
         d.run(limit=1)
+        placed += 1
         streak = streak + 1 if r.disposition == "failed" else 0
         if streak >= max_failures:
             d.export(inbox / "results" / f"{csv_path.stem}.results.csv")
@@ -52,10 +56,10 @@ def process_file(client: WebexClient, csv_path: Path, inbox: Path, dnc: list[str
         done = inbox / "done"
         done.mkdir(exist_ok=True)
         csv_path.rename(done / csv_path.name)
-    return {"file": csv_path.name, "called": sum(1 for r in d.records if r.status == "done"), "pending": pending, "warnings": warnings}
+    return {"file": csv_path.name, "called": sum(1 for r in d.records if r.status == "done"), "pending": pending, "placed": placed, "warnings": warnings}
 
 
-def run_inbox(client: WebexClient, inbox: str | Path, dnc: list[str] | None = None, max_failures: int = 5, once: bool = False,
+def run_inbox(client: WebexClient, inbox: str | Path, dnc: list[str] | None = None, max_failures: int = 5, once: bool = False, batch_size: int | None = None,
               poll_seconds: float = 300, sleep: Callable[[float], None] = time.sleep, log: Callable[[str], None] = print, **kw) -> list[dict]:
     inbox = Path(inbox)
     inbox.mkdir(parents=True, exist_ok=True)
@@ -63,8 +67,13 @@ def run_inbox(client: WebexClient, inbox: str | Path, dnc: list[str] | None = No
     while True:
         files = sorted(p for p in inbox.glob("*.csv"))
         if files and window_open():
+            left = batch_size
             for f in files:
-                res = process_file(client, f, inbox, dnc or [], max_failures, sleep=sleep, **kw)
+                if left is not None and left <= 0:
+                    break
+                res = process_file(client, f, inbox, dnc or [], max_failures, budget=left, sleep=sleep, **kw)
+                if left is not None:
+                    left -= res["placed"]
                 log(f"{res['file']}: {res['called']} called, {res['pending']} left")
                 summary.append(res)
                 if not window_open():

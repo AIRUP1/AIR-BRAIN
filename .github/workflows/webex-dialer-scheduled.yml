@@ -1,0 +1,43 @@
+name: Webex dialer (scheduled batches)
+
+# OFF by default. To turn on: repo Settings -> Secrets and variables -> Actions -> Variables ->
+# New variable DIALER_AUTORUN = true. Delete the variable (or set it to anything else) to stop.
+# Every pass places at most BATCH calls, each one rings the signed-in Webex user's device,
+# so only enable it while you're at your phone. Calls only go out 9a-8p Central, Mon-Sat.
+on:
+  schedule:
+    - cron: "*/30 14-23 * * 1-6"   # every 30 min, 14:00-23:59 UTC (about 9a-6:30p Central); code enforces the real window
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: webex-dialer
+  cancel-in-progress: false
+
+jobs:
+  dial:
+    if: github.event_name == 'workflow_dispatch' || vars.DIALER_AUTORUN == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Dial one batch
+        env:
+          WEBEX_CLIENT_ID: ${{ secrets.WEBEX_CLIENT_ID }}
+          WEBEX_CLIENT_SECRET: ${{ secrets.WEBEX_CLIENT_SECRET }}
+          WEBEX_REFRESH_TOKEN: ${{ secrets.WEBEX_REFRESH_TOKEN }}
+        run: |
+          PYTHONPATH=. python -m webex_batch_dialer auto dialer_inbox --once --batch-size "${{ vars.DIALER_BATCH || '10' }}" --max-failures 3
+      - name: Save progress (so nobody is called twice)
+        if: always()
+        run: |
+          git config user.name "dialer-bot"
+          git config user.email "dialer-bot@users.noreply.github.com"
+          git add dialer_inbox
+          git diff --cached --quiet || (git commit -m "Dialer progress $(date -u +%FT%TZ)" && git pull --rebase -q && git push -q)

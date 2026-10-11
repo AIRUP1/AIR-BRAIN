@@ -36,7 +36,7 @@ def run_auto(a, dnc):
     if client is None:
         return 2
     try:
-        run_inbox(client, a.call_list, dnc, max_failures=a.max_failures, once=a.once)
+        run_inbox(client, a.call_list, dnc, max_failures=a.max_failures, once=a.once, batch_size=a.batch_size)
     except TooManyFailures as e:
         print("stopped:", e, file=sys.stderr)
         return 3
@@ -50,6 +50,7 @@ def main(argv=None):
     p.add_argument("command", choices=["run", "sync", "auto"])
     p.add_argument("call_list", help="CSV file (run/sync) or inbox folder (auto)")
     p.add_argument("--max-failures", type=int, default=5, help="auto: stop after this many failed dials in a row")
+    p.add_argument("--batch-size", type=int, help="auto: max calls per pass (leave the rest for the next scheduled pass)")
     p.add_argument("--once", action="store_true", help="auto: process the inbox once and exit (for cron)")
     p.add_argument("--dnc", help="file with one number per line")
     p.add_argument("--limit", type=int)

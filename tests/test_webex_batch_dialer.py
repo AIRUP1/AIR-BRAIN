@@ -99,3 +99,18 @@ def test_parse_pasted_redirect():
     from webex_batch_dialer.get_webex_token import parse_pasted
     assert parse_pasted("http://localhost:3000/callback?code=abc123&state=xyz") == {"code": "abc123", "state": "xyz"}
     assert parse_pasted("  abc123 ") == {"code": "abc123"}
+
+
+def test_batch_size_caps_and_resumes(tmp_path, monkeypatch):
+    from webex_batch_dialer import automation
+    monkeypatch.setattr(automation, "window_open", lambda now=None: True)
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    (inbox / "c.csv").write_text("Business Name,Phone\n" + "".join(f"Y{i},+1214666{i:04d}\n" for i in range(5)))
+    c1 = FakeClient()
+    r1 = automation.run_inbox(c1, inbox, once=True, batch_size=2, sleep=lambda s: None, enforce_hours=False)
+    assert len(c1.dialed) == 2 and r1[0]["pending"] == 3 and (inbox / "c.csv").exists()
+    c2 = FakeClient()
+    r2 = automation.run_inbox(c2, inbox, once=True, batch_size=10, sleep=lambda s: None, enforce_hours=False)
+    assert len(c2.dialed) == 3 and r2[0]["pending"] == 0 and (inbox / "done" / "c.csv").exists()
+    assert not set(c1.dialed) & set(c2.dialed)  # nobody called twice
