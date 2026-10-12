@@ -323,7 +323,9 @@ def test_investor_blueprint_calculates_kpi_progress_and_enforces_admin_edits(cli
     assert updated.json()["status"] == "achieved"
 
     audit = client.get("/v1/workspace/audit-events", headers=auth(ADMIN_KEY)).json()
-    edited = next(event for event in audit["items"] if event["entity_id"] == revenue["id"] and event["action"] == "updated")
+    edited = next(
+        event for event in audit["items"] if event["entity_id"] == revenue["id"] and event["action"] == "updated"
+    )
     assert edited["metadata"]["changed_fields"] == ["owner", "target_value"]
 
 
@@ -357,7 +359,7 @@ def test_investor_export_and_same_origin_admin_editor(client: TestClient):
     assert export.headers["content-type"].startswith("text/html")
     assert "Investor operating snapshot" in export.text
     assert "Revenue milestones" in export.text
-    assert "role=\"progressbar\"" in export.text
+    assert 'role="progressbar"' in export.text
     assert "Edit blueprint" not in export.text
 
     ui = client.get(

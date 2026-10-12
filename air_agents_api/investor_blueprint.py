@@ -143,10 +143,10 @@ def _kpi_row(kpi: dict[str, Any], currency: str, can_edit: bool) -> str:
     if can_edit:
         edit_fields = (
             '<div class="edit-fields" aria-label="Editable KPI fields">'
-            '<label>Owner'
+            "<label>Owner"
             f'<input class="owner-input" value="{_safe(kpi.get("owner") or "")}" maxlength="120" '
             'placeholder="Accountable owner"></label>'
-            '<label>Target value'
+            "<label>Target value"
             f'<input class="target-input" type="number" step="any" min="0.000001" value="{kpi["target_value"]}"></label>'
             "</div>"
         )
@@ -169,7 +169,7 @@ def _kpi_row(kpi: dict[str, Any], currency: str, can_edit: bool) -> str:
         '<aside class="accountability">'
         '<p class="eyebrow">Accountable owner</p>'
         f'<strong class="owner-display">{_safe(owner)}</strong>'
-        f'<span>{_safe(target_date_text)}</span>'
+        f"<span>{_safe(target_date_text)}</span>"
         f"{edit_fields}"
         "</aside>"
         "</article>"
@@ -193,10 +193,12 @@ def render_investor_blueprint(
 
     title = _safe(snapshot["title"])
     as_of_date = date.fromisoformat(snapshot["as_of_date"]).strftime("%B %-d, %Y")
-    summary = "".join(_summary_card(category, grouped[category], currency) for category in ("revenue", "retention", "growth"))
+    summary = "".join(
+        _summary_card(category, grouped[category], currency) for category in ("revenue", "retention", "growth")
+    )
     sections = "".join(
         f'<section class="milestone-group"><div class="group-heading"><p class="eyebrow">{_safe(CATEGORY_META[category])}</p>'
-        f'<h2>{_safe(CATEGORY_META[category])} milestones</h2></div>'
+        f"<h2>{_safe(CATEGORY_META[category])} milestones</h2></div>"
         f"{''.join(_kpi_row(kpi, currency, can_edit and not export_mode) for kpi in grouped[category])}</section>"
         for category in CATEGORY_META
         if grouped[category]
