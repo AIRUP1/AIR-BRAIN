@@ -1,4 +1,5 @@
 """Versioned FastAPI service for AIR AGENTS operating workflows."""
+
 # ruff: noqa: B008
 # FastAPI declares request dependencies in endpoint signature defaults.
 
@@ -265,9 +266,7 @@ def create_app(
                 request.cookies.get(UI_SESSION_COOKIE), settings.workspace_ui_session_secret
             )
             if session:
-                return Principal(
-                    session["role"], auth_source="session", csrf_token=session["csrf_token"]
-                )
+                return Principal(session["role"], auth_source="session", csrf_token=session["csrf_token"])
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Valid workspace authentication required.",
@@ -297,8 +296,10 @@ def create_app(
                 )
             if csrf_protected and principal.auth_source == "session":
                 supplied_token = request.headers.get("X-CSRF-Token")
-                if not supplied_token or not principal.csrf_token or not secrets.compare_digest(
-                    supplied_token, principal.csrf_token
+                if (
+                    not supplied_token
+                    or not principal.csrf_token
+                    or not secrets.compare_digest(supplied_token, principal.csrf_token)
                 ):
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
@@ -426,7 +427,9 @@ def create_app(
             )
             logger.info("Accepted GitHub webhook", extra={"delivery_id": delivery_id, "event": event_name})
         else:
-            logger.info("Acknowledged duplicate GitHub webhook", extra={"delivery_id": delivery_id, "event": event_name})
+            logger.info(
+                "Acknowledged duplicate GitHub webhook", extra={"delivery_id": delivery_id, "event": event_name}
+            )
 
         return GitHubWebhookResponse(delivery_id=delivery_id, event=event_name, duplicate=not inserted)
 
@@ -445,7 +448,9 @@ def create_app(
         return _page(items, total, limit, offset)
 
     @app.post("/v1/workspace/leads", tags=["Workspace"], response_model=LeadResponse, status_code=201)
-    async def create_lead(payload: LeadCreate, principal: Principal = Depends(require_role("operator"))) -> dict[str, Any]:
+    async def create_lead(
+        payload: LeadCreate, principal: Principal = Depends(require_role("operator"))
+    ) -> dict[str, Any]:
         lead = repository.create_entity("leads", _serializable_values(payload))
         repository.record_audit(actor_role=principal.role, action="created", entity_type="lead", entity_id=lead["id"])
         return lead
@@ -458,7 +463,9 @@ def create_app(
         return lead
 
     @app.patch("/v1/workspace/leads/{lead_id}", tags=["Workspace"], response_model=LeadResponse)
-    async def update_lead(lead_id: str, payload: LeadUpdate, principal: Principal = Depends(require_role("operator"))) -> dict[str, Any]:
+    async def update_lead(
+        lead_id: str, payload: LeadUpdate, principal: Principal = Depends(require_role("operator"))
+    ) -> dict[str, Any]:
         lead = repository.update_entity("leads", lead_id, _serializable_values(payload, exclude_unset=True))
         if not lead:
             raise _not_found("Lead")
@@ -476,17 +483,25 @@ def create_app(
         return _page(items, total, limit, offset)
 
     @app.post("/v1/workspace/partners", tags=["Workspace"], response_model=PartnerResponse, status_code=201)
-    async def create_partner(payload: PartnerCreate, principal: Principal = Depends(require_role("operator"))) -> dict[str, Any]:
+    async def create_partner(
+        payload: PartnerCreate, principal: Principal = Depends(require_role("operator"))
+    ) -> dict[str, Any]:
         partner = repository.create_entity("partners", _serializable_values(payload))
-        repository.record_audit(actor_role=principal.role, action="created", entity_type="partner", entity_id=partner["id"])
+        repository.record_audit(
+            actor_role=principal.role, action="created", entity_type="partner", entity_id=partner["id"]
+        )
         return partner
 
     @app.patch("/v1/workspace/partners/{partner_id}", tags=["Workspace"], response_model=PartnerResponse)
-    async def update_partner(partner_id: str, payload: PartnerUpdate, principal: Principal = Depends(require_role("operator"))) -> dict[str, Any]:
+    async def update_partner(
+        partner_id: str, payload: PartnerUpdate, principal: Principal = Depends(require_role("operator"))
+    ) -> dict[str, Any]:
         partner = repository.update_entity("partners", partner_id, _serializable_values(payload, exclude_unset=True))
         if not partner:
             raise _not_found("Partner")
-        repository.record_audit(actor_role=principal.role, action="updated", entity_type="partner", entity_id=partner_id)
+        repository.record_audit(
+            actor_role=principal.role, action="updated", entity_type="partner", entity_id=partner_id
+        )
         return partner
 
     @app.get("/v1/workspace/tasks", tags=["Workspace"], response_model=Page)
@@ -500,13 +515,17 @@ def create_app(
         return _page(items, total, limit, offset)
 
     @app.post("/v1/workspace/tasks", tags=["Workspace"], response_model=TaskResponse, status_code=201)
-    async def create_task(payload: TaskCreate, principal: Principal = Depends(require_role("operator"))) -> dict[str, Any]:
+    async def create_task(
+        payload: TaskCreate, principal: Principal = Depends(require_role("operator"))
+    ) -> dict[str, Any]:
         task = repository.create_entity("tasks", _serializable_values(payload))
         repository.record_audit(actor_role=principal.role, action="created", entity_type="task", entity_id=task["id"])
         return task
 
     @app.patch("/v1/workspace/tasks/{task_id}", tags=["Workspace"], response_model=TaskResponse)
-    async def update_task(task_id: str, payload: TaskUpdate, principal: Principal = Depends(require_role("operator"))) -> dict[str, Any]:
+    async def update_task(
+        task_id: str, payload: TaskUpdate, principal: Principal = Depends(require_role("operator"))
+    ) -> dict[str, Any]:
         task = repository.update_entity("tasks", task_id, _serializable_values(payload, exclude_unset=True))
         if not task:
             raise _not_found("Task")
@@ -524,17 +543,27 @@ def create_app(
         return _page(items, total, limit, offset)
 
     @app.post("/v1/workspace/lending-cases", tags=["Workspace"], response_model=LendingCaseResponse, status_code=201)
-    async def create_lending_case(payload: LendingCaseCreate, principal: Principal = Depends(require_role("operator"))) -> dict[str, Any]:
+    async def create_lending_case(
+        payload: LendingCaseCreate, principal: Principal = Depends(require_role("operator"))
+    ) -> dict[str, Any]:
         lending_case = repository.create_entity("lending_cases", _serializable_values(payload))
-        repository.record_audit(actor_role=principal.role, action="created", entity_type="lending_case", entity_id=lending_case["id"])
+        repository.record_audit(
+            actor_role=principal.role, action="created", entity_type="lending_case", entity_id=lending_case["id"]
+        )
         return lending_case
 
     @app.patch("/v1/workspace/lending-cases/{case_id}", tags=["Workspace"], response_model=LendingCaseResponse)
-    async def update_lending_case(case_id: str, payload: LendingCaseUpdate, principal: Principal = Depends(require_role("operator"))) -> dict[str, Any]:
-        lending_case = repository.update_entity("lending_cases", case_id, _serializable_values(payload, exclude_unset=True))
+    async def update_lending_case(
+        case_id: str, payload: LendingCaseUpdate, principal: Principal = Depends(require_role("operator"))
+    ) -> dict[str, Any]:
+        lending_case = repository.update_entity(
+            "lending_cases", case_id, _serializable_values(payload, exclude_unset=True)
+        )
         if not lending_case:
             raise _not_found("Lending case")
-        repository.record_audit(actor_role=principal.role, action="updated", entity_type="lending_case", entity_id=case_id)
+        repository.record_audit(
+            actor_role=principal.role, action="updated", entity_type="lending_case", entity_id=case_id
+        )
         return lending_case
 
     @app.get("/v1/workspace/campaign-briefs", tags=["Workspace"], response_model=Page)
@@ -547,18 +576,30 @@ def create_app(
         items, total = repository.list_entities("campaign_briefs", status=status_filter, limit=limit, offset=offset)
         return _page(items, total, limit, offset)
 
-    @app.post("/v1/workspace/campaign-briefs", tags=["Workspace"], response_model=CampaignBriefResponse, status_code=201)
-    async def create_campaign_brief(payload: CampaignBriefCreate, principal: Principal = Depends(require_role("operator"))) -> dict[str, Any]:
+    @app.post(
+        "/v1/workspace/campaign-briefs", tags=["Workspace"], response_model=CampaignBriefResponse, status_code=201
+    )
+    async def create_campaign_brief(
+        payload: CampaignBriefCreate, principal: Principal = Depends(require_role("operator"))
+    ) -> dict[str, Any]:
         campaign = repository.create_entity("campaign_briefs", _serializable_values(payload))
-        repository.record_audit(actor_role=principal.role, action="created", entity_type="campaign_brief", entity_id=campaign["id"])
+        repository.record_audit(
+            actor_role=principal.role, action="created", entity_type="campaign_brief", entity_id=campaign["id"]
+        )
         return campaign
 
     @app.patch("/v1/workspace/campaign-briefs/{brief_id}", tags=["Workspace"], response_model=CampaignBriefResponse)
-    async def update_campaign_brief(brief_id: str, payload: CampaignBriefUpdate, principal: Principal = Depends(require_role("operator"))) -> dict[str, Any]:
-        campaign = repository.update_entity("campaign_briefs", brief_id, _serializable_values(payload, exclude_unset=True))
+    async def update_campaign_brief(
+        brief_id: str, payload: CampaignBriefUpdate, principal: Principal = Depends(require_role("operator"))
+    ) -> dict[str, Any]:
+        campaign = repository.update_entity(
+            "campaign_briefs", brief_id, _serializable_values(payload, exclude_unset=True)
+        )
         if not campaign:
             raise _not_found("Campaign brief")
-        repository.record_audit(actor_role=principal.role, action="updated", entity_type="campaign_brief", entity_id=brief_id)
+        repository.record_audit(
+            actor_role=principal.role, action="updated", entity_type="campaign_brief", entity_id=brief_id
+        )
         return campaign
 
     def investor_snapshot_or_404(blueprint_id: str) -> dict[str, Any]:
@@ -671,9 +712,7 @@ def create_app(
     ) -> dict[str, Any]:
         if not repository.get_investor_blueprint(blueprint_id):
             raise _not_found("Investor blueprint")
-        kpi = repository.update_investor_kpi(
-            blueprint_id, kpi_id, _serializable_values(payload, exclude_unset=True)
-        )
+        kpi = repository.update_investor_kpi(blueprint_id, kpi_id, _serializable_values(payload, exclude_unset=True))
         if not kpi:
             raise _not_found("Investor KPI")
         repository.record_audit(

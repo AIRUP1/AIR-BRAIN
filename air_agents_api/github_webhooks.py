@@ -23,9 +23,7 @@ def verify_github_signature(*, raw_body: bytes, secret: str, signature_header: s
     if not signature_header:
         raise GitHubWebhookSignatureError("Missing GitHub webhook signature.")
 
-    expected_signature = "sha256=" + hmac.new(
-        secret.encode("utf-8"), raw_body, hashlib.sha256
-    ).hexdigest()
+    expected_signature = "sha256=" + hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected_signature, signature_header):
         raise GitHubWebhookSignatureError("GitHub webhook signature did not match.")
 
