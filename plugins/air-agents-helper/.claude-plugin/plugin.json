@@ -1,0 +1,8 @@
+{
+  "name": "air-agents-helper",
+  "version": "0.1.0",
+  "description": "Development helpers for the AIR AGENTS API: run tests, scaffold /v1 routes, and review changes against Lending Desk compliance and API-key role rules.",
+  "author": { "name": "AIR AGENTS" },
+  "license": "MIT",
+  "keywords": ["fastapi", "air-agents", "compliance"]
+}
