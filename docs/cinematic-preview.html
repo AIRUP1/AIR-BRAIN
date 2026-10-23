@@ -155,10 +155,22 @@
   });
 
   var playing = !reduceMotion, clock = 0, last = performance.now(), current = -1;
-  playBtn.onclick = function () { playing = !playing; playBtn.textContent = playing ? "Pause" : "Play"; };
+  var voice = new Audio("assets/air-agents-narration.mp3"), voiceOn = false;
+  var voiceBtn = document.createElement("button"); voiceBtn.className = "btn"; voiceBtn.textContent = "Narration: off";
+  ui.insertBefore(voiceBtn, ui.firstChild.nextSibling);
+  function syncVoice() {
+    if (!voiceOn) return;
+    if (playing) { if (voice.paused) voice.play().catch(function () {}); } else voice.pause();
+  }
+  voiceBtn.onclick = function () {
+    voiceOn = !voiceOn; voiceBtn.textContent = "Narration: " + (voiceOn ? "on" : "off");
+    if (voiceOn) voice.currentTime = clock; else voice.pause();
+    syncVoice();
+  };
+  playBtn.onclick = function () { playing = !playing; playBtn.textContent = playing ? "Pause" : "Play"; syncVoice(); };
 
   function startOf(i) { var t = 0; for (var k = 0; k < i; k++) t += shots[k].dur; return t; }
-  function seek(i) { clock = startOf(i); }
+  function seek(i) { clock = startOf(i); if (voiceOn) voice.currentTime = clock; }
 
   function ease(t) { return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
   function lerp3(a, b, t) { return new THREE.Vector3(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t); }
@@ -176,7 +188,10 @@
   var look = new THREE.Vector3();
   function frame(now) {
     var dt = Math.min((now - last) / 1000, .1); last = now;
-    if (playing) clock = (clock + dt) % total;
+    if (playing) {
+      var prev = clock; clock = (clock + dt) % total;
+      if (voiceOn && (clock < prev || Math.abs(voice.currentTime - clock) > .6)) voice.currentTime = clock;
+    }
 
     var i = 0, acc = 0;
     while (i < shots.length - 1 && clock >= acc + shots[i].dur) { acc += shots[i].dur; i++; }
