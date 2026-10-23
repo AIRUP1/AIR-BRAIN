@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIR AGENTS — 3D Cinematic Preview</title>
+<style>
+  :root {
+    --bg: #05060d;
+    --fg: #eef2ff;
+    --muted: #8b93b8;
+    --accent: #5de0ff;
+    --accent2: #a78bfa;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  canvas { position: fixed; inset: 0; display: block; }
+  .vignette { position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.75) 100%); }
+  .bars::before, .bars::after { content: ""; position: fixed; left: 0; right: 0; height: 7vh;
+    background: #000; z-index: 3; pointer-events: none; }
+  .bars::before { top: 0; } .bars::after { bottom: 0; }
+  .caption { position: fixed; left: 0; right: 0; bottom: 14vh; padding: 0 16px; text-align: center;
+    z-index: 2; pointer-events: none; transition: opacity .9s ease, transform .9s ease; }
+  .caption.hide { opacity: 0; transform: translateY(14px); }
+  .kicker { letter-spacing: .35em; text-transform: uppercase; font-size: clamp(10px, 1.4vw, 13px); color: var(--accent); }
+  .title { margin: .4em 0 .3em; font-size: clamp(28px, 6vw, 72px); font-weight: 700; letter-spacing: -.02em;
+    background: linear-gradient(90deg, var(--fg), var(--accent) 60%, var(--accent2)); -webkit-background-clip: text;
+    background-clip: text; color: transparent; }
+  .sub { margin: 0 auto; max-width: 640px; color: var(--muted); font-size: clamp(13px, 1.8vw, 18px); line-height: 1.5; }
+  .ui { position: fixed; left: 50%; bottom: calc(7vh + 10px); transform: translateX(-50%); z-index: 4;
+    display: flex; gap: 10px; align-items: center; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--muted); background: transparent;
+    padding: 0; cursor: pointer; }
+  .dot.on { background: var(--accent); border-color: var(--accent); }
+  .btn { background: rgba(255,255,255,.08); color: var(--fg); border: 1px solid rgba(255,255,255,.18);
+    border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 12px; cursor: pointer; }
+  .btn:hover { background: rgba(255,255,255,.16); }
+  .note { position: fixed; top: calc(7vh + 8px); right: 16px; z-index: 4; font-size: 11px; color: var(--muted); max-width: 240px; text-align: right; }
+  #fallback { display: none; position: fixed; inset: 0; z-index: 5; align-items: center; justify-content: center;
+    text-align: center; padding: 24px; color: var(--muted); }
+</style>
+</head>
+<body class="bars">
+<div class="vignette"></div>
+<div id="fallback">3D could not start (WebGL or the Three.js CDN is unavailable). Open this file in a modern browser with network access.</div>
+
+<div class="caption" id="caption">
+  <div class="kicker" id="kicker"></div>
+  <h1 class="title" id="title"></h1>
+  <p class="sub" id="sub"></p>
+</div>
+<div class="note">Illustrative preview. Figures are planning assumptions, not forecasts.</div>
+<div class="ui" id="ui"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  if (!window.THREE) { document.getElementById("fallback").style.display = "flex"; return; }
+
+  var reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var renderer;
+  try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false }); }
+  catch (e) { document.getElementById("fallback").style.display = "flex"; return; }
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setClearColor(0x05060d);
+  document.body.prepend(renderer.domElement);
+
+  var scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x05060d, 0.018);
+  var camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 400);
+
+  scene.add(new THREE.AmbientLight(0x6677aa, 0.6));
+  var key = new THREE.PointLight(0x5de0ff, 2.2, 90); key.position.set(0, 10, 10); scene.add(key);
+  var rim = new THREE.PointLight(0xa78bfa, 1.8, 90); rim.position.set(-14, 4, -20); scene.add(rim);
+
+  /* ---------- starfield ---------- */
+  var starGeo = new THREE.BufferGeometry(), sp = [];
+  for (var i = 0; i < 1800; i++) sp.push((Math.random() - .5) * 260, (Math.random() - .5) * 120, -Math.random() * 260 + 40);
+  starGeo.setAttribute("position", new THREE.Float32BufferAttribute(sp, 3));
+  var stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x9fb4ff, size: 0.35, transparent: true, opacity: .8 }));
+  scene.add(stars);
+
+  var mats = {
+    glass: function (c) { return new THREE.MeshStandardMaterial({ color: c, metalness: .6, roughness: .25, emissive: c, emissiveIntensity: .25 }); },
+    wire: function (c) { return new THREE.MeshBasicMaterial({ color: c, wireframe: true, transparent: true, opacity: .35 }); }
+  };
+
+  /* ---------- scene 1: core (z = 0) ---------- */
+  var core = new THREE.Group(); core.position.set(0, 0, 0);
+  var ico = new THREE.Mesh(new THREE.IcosahedronGeometry(2.4, 1), mats.glass(0x5de0ff));
+  var icoW = new THREE.Mesh(new THREE.IcosahedronGeometry(3.1, 1), mats.wire(0xa78bfa));
+  var ringA = new THREE.Mesh(new THREE.TorusGeometry(4.6, .04, 8, 120), new THREE.MeshBasicMaterial({ color: 0x5de0ff }));
+  var ringB = new THREE.Mesh(new THREE.TorusGeometry(5.4, .03, 8, 120), new THREE.MeshBasicMaterial({ color: 0xa78bfa }));
+  ringA.rotation.x = Math.PI / 2.4; ringB.rotation.x = Math.PI / 1.7; ringB.rotation.y = .6;
+  core.add(ico, icoW, ringA, ringB); scene.add(core);
+
+  /* ---------- scene 2: offer ladder (z = -40) ---------- */
+  var ladder = new THREE.Group(); ladder.position.set(0, 0, -40);
+  var tiers = [0x5de0ff, 0x7aa8ff, 0xa78bfa, 0xf0abfc];
+  var tierMeshes = tiers.map(function (c, i) {
+    var m = new THREE.Mesh(new THREE.BoxGeometry(4.4 - i * .5, 1.1, 4.4 - i * .5), mats.glass(c));
+    m.position.y = -3 + i * 1.7;
+    var edge = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: .5 }));
+    m.add(edge); ladder.add(m); return m;
+  });
+  scene.add(ladder);
+
+  /* ---------- scene 3: funnel (z = -80) ---------- */
+  var funnel = new THREE.Group(); funnel.position.set(0, 0, -80);
+  for (var r = 0; r < 9; r++) {
+    var rad = 6.5 - r * .62;
+    var ring = new THREE.Mesh(new THREE.TorusGeometry(rad, .05, 8, 90), new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(.52 + r * .03, .9, .6) }));
+    ring.rotation.x = Math.PI / 2; ring.position.y = 6 - r * 1.5; funnel.add(ring);
+  }
+  var N = 420, fpos = new Float32Array(N * 3), fseed = [];
+  for (var p = 0; p < N; p++) fseed.push({ a: Math.random() * 6.28, t: Math.random(), s: .15 + Math.random() * .25 });
+  var fGeo = new THREE.BufferGeometry(); fGeo.setAttribute("position", new THREE.BufferAttribute(fpos, 3));
+  var fPts = new THREE.Points(fGeo, new THREE.PointsMaterial({ color: 0xffffff, size: .16, transparent: true, opacity: .95 }));
+  funnel.add(fPts); scene.add(funnel);
+
+  /* ---------- scene 4: growth bars (z = -120) ---------- */
+  var growth = new THREE.Group(); growth.position.set(0, 0, -120);
+  var qs = [0.15, 0.39, 0.69, 1.05], bars = [];
+  qs.forEach(function (v, i) {
+    var h = v * 7;
+    var b = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 2), mats.glass(new THREE.Color().setHSL(.52 + i * .08, .85, .55)));
+    b.userData = { h: h }; b.position.set(-7.5 + i * 5, 0, 0); b.scale.y = .001; growth.add(b); bars.push(b);
+  });
+  var floor = new THREE.GridHelper(40, 40, 0x5de0ff, 0x1a2250); floor.position.y = -0.01; growth.add(floor);
+  scene.add(growth);
+
+  /* ---------- shots ---------- */
+  var shots = [
+    { kicker: "AIR AGENTS LLC", title: "From Signal to Revenue", sub: "AI growth systems, voice automation, creative production and lending-readiness coordination, run as one operating system.",
+      from: [0, 1, 16], to: [7, 3, 10], look: [0, 0, 0], dur: 7 },
+    { kicker: "01 · The Offer Ladder", title: "One Audit. Four Ways to Grow.", sub: "A low-friction AI Growth Audit leads into retainers for growth systems, voice agents, creative and partner coordination.",
+      from: [-12, 2, -28], to: [10, 5, -30], look: [0, 0, -40], dur: 8 },
+    { kicker: "02 · Every Platform, One Funnel", title: "Many Channels. One Pipeline.", sub: "LinkedIn, outbound, search, video, short-form, newsletter and partners feed a single consent-aware intake.",
+      from: [0, 12, -62], to: [0, 3, -66], look: [0, 0, -80], dur: 8 },
+    { kicker: "03 · The Target", title: "$1M Run-Rate by Q4", sub: "About 28 retained clients at roughly $3K a month. Quarter-end MRR assumptions: $15K, $39K, $69K, $105K.",
+      from: [-14, 4, -104], to: [8, 6, -106], look: [0, 3, -120], dur: 9 }
+  ];
+  var total = shots.reduce(function (s, x) { return s + x.dur; }, 0);
+
+  var $ = function (id) { return document.getElementById(id); };
+  var ui = $("ui"), dots = [];
+  var playBtn = document.createElement("button"); playBtn.className = "btn"; playBtn.textContent = reduceMotion ? "Play" : "Pause";
+  ui.appendChild(playBtn);
+  shots.forEach(function (s, i) {
+    var d = document.createElement("button"); d.className = "dot"; d.setAttribute("aria-label", "Scene " + (i + 1));
+    d.onclick = function () { seek(i); }; ui.appendChild(d); dots.push(d);
+  });
+
+  var playing = !reduceMotion, clock = 0, last = performance.now(), current = -1;
+  var voice = new Audio("assets/air-agents-narration.mp3"), voiceOn = false;
+  var voiceBtn = document.createElement("button"); voiceBtn.className = "btn"; voiceBtn.textContent = "Narration: off";
+  ui.insertBefore(voiceBtn, ui.firstChild.nextSibling);
+  function syncVoice() {
+    if (!voiceOn) return;
+    if (playing) { if (voice.paused) voice.play().catch(function () {}); } else voice.pause();
+  }
+  voiceBtn.onclick = function () {
+    voiceOn = !voiceOn; voiceBtn.textContent = "Narration: " + (voiceOn ? "on" : "off");
+    if (voiceOn) voice.currentTime = clock; else voice.pause();
+    syncVoice();
+  };
+  playBtn.onclick = function () { playing = !playing; playBtn.textContent = playing ? "Pause" : "Play"; syncVoice(); };
+
+  function startOf(i) { var t = 0; for (var k = 0; k < i; k++) t += shots[k].dur; return t; }
+  function seek(i) { clock = startOf(i); if (voiceOn) voice.currentTime = clock; }
+
+  function ease(t) { return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+  function lerp3(a, b, t) { return new THREE.Vector3(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t); }
+
+  var capEl = $("caption");
+  function setCaption(i) {
+    capEl.classList.add("hide");
+    setTimeout(function () {
+      $("kicker").textContent = shots[i].kicker; $("title").textContent = shots[i].title; $("sub").textContent = shots[i].sub;
+      capEl.classList.remove("hide");
+    }, 450);
+    dots.forEach(function (d, k) { d.classList.toggle("on", k === i); });
+  }
+
+  var look = new THREE.Vector3();
+  function frame(now) {
+    var dt = Math.min((now - last) / 1000, .1); last = now;
+    if (playing) {
+      var prev = clock; clock = (clock + dt) % total;
+      if (voiceOn && (clock < prev || Math.abs(voice.currentTime - clock) > .6)) voice.currentTime = clock;
+    }
+
+    var i = 0, acc = 0;
+    while (i < shots.length - 1 && clock >= acc + shots[i].dur) { acc += shots[i].dur; i++; }
+    var s = shots[i], t = ease((clock - acc) / s.dur);
+    if (i !== current) { current = i; setCaption(i); }
+
+    camera.position.copy(lerp3(s.from, s.to, t));
+    look.set(s.look[0], s.look[1], s.look[2]); camera.lookAt(look);
+
+    var T = now / 1000;
+    ico.rotation.y = T * .3; ico.rotation.x = T * .15; icoW.rotation.y = -T * .2;
+    ringA.rotation.z = T * .4; ringB.rotation.z = -T * .3;
+    tierMeshes.forEach(function (m, k) { m.rotation.y = T * (.15 + k * .05); m.position.y = -3 + k * 1.7 + Math.sin(T + k) * .12; });
+    for (var q = 0; q < N; q++) {
+      var f = fseed[q]; f.t += f.s * dt * .5; if (f.t > 1) f.t = 0;
+      var rad = 6.5 * (1 - f.t) + .3, ang = f.a + T * (.4 + f.t * 2);
+      fpos[q * 3] = Math.cos(ang) * rad; fpos[q * 3 + 1] = 6 - f.t * 13.5; fpos[q * 3 + 2] = Math.sin(ang) * rad;
+    }
+    fGeo.attributes.position.needsUpdate = true;
+    var grow = current === 3 ? Math.min((clock - acc) / 4, 1) : (current > 3 ? 1 : 0);
+    bars.forEach(function (b, k) {
+      var g = ease(Math.max(0, Math.min(1, grow * 1.4 - k * .2)));
+      b.scale.y = Math.max(.001, b.userData.h * g); b.position.y = b.scale.y / 2;
+    });
+    stars.rotation.y = T * .01;
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  addEventListener("resize", function () {
+    camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight);
+  });
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
