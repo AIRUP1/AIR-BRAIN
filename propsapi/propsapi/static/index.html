@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Props Probability 3D</title>
+<style>
+  :root { --bg:#070b14; --panel:#0e1524; --line:#1f2b45; --txt:#dbe6ff; --dim:#7f92b8; --over:#27d98a; --under:#ffb347; --acc:#4d8dff; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--txt); font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden; }
+  #app { display:grid; grid-template-columns:1fr 480px; grid-template-rows:auto 1fr; height:100%; }
+  header { grid-column:1/3; display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); }
+  header h1 { font-size:14px; margin:0 12px 0 0; letter-spacing:.08em; }
+  label.f, button { background:#16213a; color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:5px 10px; cursor:pointer; font:inherit; }
+  label.f:hover, button:hover { border-color:var(--acc); }
+  label.f.ok { border-color:var(--over); }
+  label.f input { display:none; }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600; }
+  #status { color:var(--dim); margin-left:auto; }
+  #stage { position:relative; min-height:0; }
+  #stage canvas { display:block; width:100%; height:100%; }
+  #tip { position:absolute; pointer-events:none; background:rgba(8,12,22,.92); border:1px solid var(--line); padding:6px 9px; border-radius:6px; display:none; font-size:12px; z-index:3; white-space:nowrap; }
+  #legend { position:absolute; left:12px; bottom:10px; color:var(--dim); font-size:11px; z-index:2; }
+  #legend b.o { color:var(--over); } #legend b.u { color:var(--under); }
+  aside { background:var(--panel); border-left:1px solid var(--line); overflow:auto; min-height:0; }
+  aside section { padding:10px 12px; border-bottom:1px solid var(--line); }
+  aside h2 { margin:0 0 6px; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th,td { text-align:right; padding:3px 5px; border-bottom:1px solid #16203a; white-space:nowrap; }
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2) { text-align:left; }
+  th { color:var(--dim); font-weight:600; cursor:pointer; position:sticky; top:0; background:var(--panel); }
+  tbody tr { cursor:pointer; } tbody tr:hover, tr.sel { background:#16233f; }
+  .over { color:var(--over); } .under { color:var(--under); } .val { color:#fff; background:#1b6b4a; border-radius:3px; padding:0 4px; }
+  #tablewrap { max-height:34vh; overflow:auto; }
+  .step { display:grid; grid-template-columns:150px 1fr 70px; gap:6px; padding:3px 0; border-bottom:1px dashed #19243f; }
+  .step code { color:#9fc1ff; font:11px ui-monospace,Menlo,Consolas,monospace; word-break:break-word; }
+  .step .v { text-align:right; font-variant-numeric:tabular-nums; }
+  .bar { height:5px; background:#16213a; border-radius:3px; margin-top:3px; }
+  .bar i { display:block; height:100%; background:var(--acc); border-radius:3px; }
+  .warn { color:var(--under); font-size:11px; }
+  input[type=number] { width:56px; background:#16213a; color:var(--txt); border:1px solid var(--line); border-radius:5px; padding:3px 5px; }
+  @media (max-width:900px) { #app { grid-template-columns:1fr; grid-template-rows:auto 45vh 1fr; } aside { border-left:0; } header { grid-column:1; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "/static/vendor/three/build/three.module.js",
+  "three/addons/": "/static/vendor/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>PROPS PROBABILITY 3D</h1>
+    <label class="f" id="lp">players.csv<input type="file" accept=".csv" data-k="players"></label>
+    <label class="f" id="lt">teams.csv<input type="file" accept=".csv" data-k="teams"></label>
+    <label class="f" id="lg">games.csv<input type="file" accept=".csv" data-k="games"></label>
+    <label class="f" id="lq">props.csv<input type="file" accept=".csv" data-k="props"></label>
+    <button class="primary" id="run">Run model</button>
+    <button id="demo">Load demo (synthetic)</button>
+    <button id="api" style="display:none">Load from API</button>
+    <button id="keys" style="display:none">&#128274; Keys</button>
+    <button id="xp">Export CSV (values)</button>
+    <button id="xf">Export CSV (Excel formulas)</button>
+    <span id="status">Load 4 CSVs or the demo.</span>
+  </header>
+
+  <div id="stage">
+    <div id="tip"></div>
+    <div id="legend">Bar height = P(pick) &middot; <b class="o">green</b> OVER &middot; <b class="u">amber</b> UNDER &middot; ring = VALUE flag &middot; plane = 52.38% (-110 break-even) &middot; drag to orbit, click a bar</div>
+  </div>
+
+  <aside>
+    <section>
+      <h2>Props ranked by P(pick)</h2>
+      <div id="tablewrap"><table id="tbl"><thead><tr>
+        <th data-s="player">Player</th><th data-s="stat">Stat</th><th data-s="line">Line</th><th data-s="mu">Proj</th>
+        <th data-s="pickProb">P(pick)</th><th data-s="pick">Pick</th><th data-s="edge">Edge</th><th data-s="kelly">Kelly%</th>
+      </tr></thead><tbody></tbody></table></div>
+    </section>
+    <section>
+      <h2>Formula trace (accumulated)</h2>
+      <div id="trace" style="color:var(--dim)">Click a bar or a row.</div>
+    </section>
+    <section>
+      <h2>Parlay (independent legs, one per team)</h2>
+      Legs <input type="number" id="legs" value="3" min="1" max="10">
+      <div id="parlay" style="margin-top:6px;color:var(--dim)"></div>
+    </section>
+    <section class="warn">Demo data is synthetic. Coefficients are starting values: fit with a backtest on real game logs before trusting any output. Not betting advice.</section>
+  </aside>
+</div>
+
+
+<div id="vault" style="display:none;position:fixed;inset:0;background:rgba(3,6,12,.75);z-index:20;align-items:center;justify-content:center">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;width:min(460px,92vw);padding:16px 18px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+    <div style="display:flex;justify-content:space-between;align-items:center"><b>&#128274; Encrypted key vault</b><button id="vx">&times;</button></div>
+    <p style="color:var(--dim);margin:6px 0 10px;font-size:12px">AES-encrypted on disk with a key derived from your passphrase (never stored). Unlocked keys stay in server memory and are never sent back to the browser. Localhost only.</p>
+    <div id="vlock"><input id="vpass" type="password" autocomplete="off" placeholder="Passphrase (8+ chars; creates the vault if new)" style="width:100%;padding:7px;background:#16213a;color:var(--txt);border:1px solid var(--line);border-radius:6px">
+      <button class="primary" id="vunlock" style="margin-top:8px">Unlock / create</button></div>
+    <div id="vopen" style="display:none"><div id="vkeys"></div><button id="vlockbtn" style="margin-top:10px">Lock vault</button></div>
+    <div id="vmsg" style="margin-top:8px;font-size:12px;color:var(--dim)"></div>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ================= constants (match cfb_props.py) ================= */
+const STAT_CFG = {
+  pass_yds:{cat:'pass',kind:'cont', prior:215,cv:.38}, pass_td:{cat:'pass',kind:'count',prior:1.6,cv:.7},
+  rush_yds:{cat:'rush',kind:'cont', prior:48, cv:.8},  rush_td:{cat:'rush',kind:'count',prior:.4,cv:1.4},
+  rec_yds:{cat:'pass',kind:'cont',  prior:42, cv:.9},  receptions:{cat:'pass',kind:'count',prior:3.6,cv:.7},
+  rec_td:{cat:'pass',kind:'count',  prior:.25,cv:1.6}
+};
+const C = { ALPHA:.70, HALF_LIFE:3, SHRINK_K:3, FORM_EXP:.30, FORM_N:3, SCRIPT:{rush:.0020,pass:-.0010}, SCRIPT_CLIP:.05,
+            H2H_W:.25, HOME:.02, PO_CLIP:[.90,1.10], PO_K:3, MIN_G:4, KELLY:.25, EDGE_FLAG:.04 };
+
+/* ================= math helpers ================= */
+const erf = x => { const s=Math.sign(x); x=Math.abs(x); const t=1/(1+.3275911*x);
+  const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x); return s*y; };
+const normCdf = x => .5*(1+erf(x/Math.SQRT2));
+const poisCdf = (k,l) => { k=Math.floor(k); if(k<0) return 0; let s=0,term=Math.exp(-l); s=term; for(let i=1;i<=k;i++){term*=l/i;s+=term;} return Math.min(1,s); };
+const a2p = o => o<0 ? -o/(-o+100) : 100/(o+100);
+const clip = (x,a,b) => Math.min(b,Math.max(a,x));
+const mean = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : 0;
+const std1 = a => { if(a.length<2) return 0; const m=mean(a); return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1)); };
+
+/* ================= CSV ================= */
+function parseCSV(text){
+  const rows=[]; let r=[],f='',q=false;
+  for(let i=0;i<text.length;i++){ const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){f+='"';i++;} else q=false; } else f+=c; }
+    else if(c==='"') q=true;
+    else if(c===','){ r.push(f); f=''; }
+    else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; r.push(f); f=''; if(r.some(x=>x!=='')) rows.push(r); r=[]; }
+    else f+=c; }
+  if(f!==''||r.length){ r.push(f); rows.push(r); }
+  if(!rows.length) return [];
+  const h=rows[0].map(x=>x.trim());
+  return rows.slice(1).map(a=>Object.fromEntries(h.map((k,i)=>[k,(a[i]??'').trim()])));
+}
+const num = v => (v===''||v==null) ? NaN : Number(v);
+const toCSV = (rows,cols) => [cols.join(','), ...rows.map(r=>cols.map(c=>{ const v=r[c]??''; return /[",\n]/.test(v)?`"${String(v).replace(/"/g,'""')}"`:v; }).join(','))].join('\n');
+const download = (name,text) => { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'text/csv'})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); };
+
+/* ================= model ================= */
+class Model {
+  constructor(players,teams,games){
+    this.players = players.map(r=>({date:r.date,player:r.player,team:r.team,opponent:r.opponent,stat:r.stat,value:num(r.value),home:r.home}));
+    this.teams = {}; teams.forEach(t=>this.teams[t.team]=t);
+    this.games = games.map(g=>({date:g.date,team:g.team,opponent:g.opponent,pf:num(g.pts_for),pa:num(g.pts_against)}));
+    this.nat = {};
+    for (const col of ['def_pass_ypg','def_rush_ypg']) this.nat[col]=mean(teams.map(t=>num(t[col])).filter(x=>!isNaN(x)));
+  }
+  defRatio(opp,cat){ const col=`def_${cat}_ypg`, t=this.teams[opp];
+    return (t && !isNaN(num(t[col])) && this.nat[col]) ? num(t[col])/this.nat[col] : 1; }
+  prior(stat){ const by={}; this.players.filter(p=>p.stat===stat).forEach(p=>(by[p.player]??=[]).push(p.value));
+    const ms=Object.values(by).map(mean); return ms.length>=5 ? {v:mean(ms),src:`mean of ${ms.length} player means`} : {v:STAT_CFG[stat].prior,src:'fallback constant'}; }
+  teamGames(team){ return this.games.filter(g=>g.team===team).sort((a,b)=>a.date<b.date?-1:1); }
+  avgMargin(team){ const g=this.teamGames(team); return g.length?mean(g.map(x=>x.pf-x.pa)):0; }
+  h2h(team,opp){ const g=this.teamGames(team).filter(x=>x.opponent===opp); if(!g.length) return {m:0,w:0,l:0,n:0};
+    const ms=g.map(x=>x.pf-x.pa); return {m:mean(ms),w:ms.filter(x=>x>0).length,l:ms.filter(x=>x<0).length,n:g.length}; }
+  form(team){ const g=this.teamGames(team); if(g.length<C.FORM_N+1) return 1; const s=mean(g.map(x=>x.pf)); if(s<=0) return 1;
+    return clip(Math.pow(mean(g.slice(-C.FORM_N).map(x=>x.pf))/s,C.FORM_EXP),.92,1.08); }
+
+  project(player,team,opp,stat,home){
+    const cfg=STAT_CFG[stat], cat=cfg.cat, steps=[];
+    const log=this.players.filter(p=>p.player===player&&p.stat===stat).sort((a,b)=>a.date<b.date?-1:1);
+    const n=log.length, pr=this.prior(stat);
+    let wmean=pr.v, mu0=pr.v, adj=[];
+    if(n){
+      const ratios=log.map(l=>this.defRatio(l.opponent,cat));
+      adj=log.map((l,i)=>l.value/Math.pow(ratios[i],C.ALPHA));
+      const w=log.map((_,i)=>Math.pow(.5,(n-1-i)/C.HALF_LIFE));
+      wmean=adj.reduce((s,x,i)=>s+x*w[i],0)/w.reduce((s,x)=>s+x,0);
+      const sh=n/(n+C.SHRINK_K); mu0=sh*wmean+(1-sh)*pr.v;
+      steps.push({k:'Prior',f:`league avg of ${stat}`,v:pr.v,note:pr.src});
+      steps.push({k:'Adj. recency mean',f:`Σ w·(x/ratio^${C.ALPHA}) / Σ w, w=0.5^(age/${C.HALF_LIFE})`,v:wmean,note:`n=${n}`});
+      steps.push({k:'Shrunk base μ₀',f:`n/(n+${C.SHRINK_K})·wmean + (1−n/(n+${C.SHRINK_K}))·prior`,v:mu0,note:`shrink=${sh.toFixed(2)}`});
+    } else steps.push({k:'Base μ₀ (no history)',f:'prior only',v:pr.v,note:pr.src});
+
+    const fOpp=Math.pow(this.defRatio(opp,cat),C.ALPHA), fForm=this.form(team);
+    let em=this.avgMargin(team)-this.avgMargin(opp); const h=this.h2h(team,opp), hw=C.H2H_W*Math.min(h.n,3)/3;
+    em=(1-hw)*em+hw*h.m;
+    const fScript=1+clip(C.SCRIPT[cat]*em,-C.SCRIPT_CLIP,C.SCRIPT_CLIP);
+    const homeN = home===''||home==null||isNaN(Number(home)) ? null : Number(home);
+    const fHome = homeN===1 ? 1+C.HOME : homeN===0 ? 1-C.HOME : 1;
+    let fPO=1; const vs=log.filter(l=>l.opponent===opp);
+    if(vs.length&&wmean>0&&n){ const rr=this.defRatio(opp,cat); const vsAdj=mean(vs.map(l=>l.value/Math.pow(rr,C.ALPHA)));
+      const r=vsAdj/wmean, m=vs.length; fPO=clip(1+(r-1)*m/(m+C.PO_K),C.PO_CLIP[0],C.PO_CLIP[1]); }
+
+    let run=mu0;
+    const mult=(k,f,fac,note)=>{ run*=fac; steps.push({k,f,v:run,mult:fac,note}); };
+    mult('× Opp defense',`(opp ${cat} yds allowed / nat avg)^${C.ALPHA}`,fOpp,`ratio ${this.defRatio(opp,cat).toFixed(3)}`);
+    mult('× Team form',`clip((last${C.FORM_N} pts / season pts)^${C.FORM_EXP}, .92, 1.08)`,fForm,'');
+    mult('× Game script',`1 + clip(${C.SCRIPT[cat]}·exp_margin, ±${C.SCRIPT_CLIP})`,fScript,`exp margin ${em.toFixed(1)}, h2h ${h.n?h.w+'-'+h.l:'none'}`);
+    mult('× Home/away',`±${C.HOME}`,fHome,homeN===1?'home':homeN===0?'away':'unknown');
+    mult('× Player vs opp',`clip(1+(r−1)·m/(m+${C.PO_K}), .90, 1.10)`,fPO,`${vs.length} past game(s)`);
+    const mu=Math.max(0,run);
+
+    let sigma;
+    if(cfg.kind==='cont'){ const wgt=n/(n+C.SHRINK_K), se=n>=3?std1(adj):0, sp=cfg.cv*Math.max(mu,1e-6);
+      sigma=Math.sqrt(wgt*se*se+(1-wgt)*sp*sp); sigma=Math.max(sigma,.25*Math.max(mu,1e-6));
+      steps.push({k:'σ (spread)',f:`√(w·s²_emp + (1−w)·(cv·μ)²), floor .25μ`,v:sigma,note:`cv=${cfg.cv}`});
+    } else { sigma=Math.sqrt(mu); steps.push({k:'Poisson λ',f:'λ = μ',v:mu,note:''}); }
+    return {mu,sigma,n,kind:cfg.kind,steps,fOpp,fForm,fScript,fHome,fPO,em,h2h:h.n?`${h.w}-${h.l}`:'none'};
+  }
+  static pOver(p,line){ return p.kind==='cont' ? 1-normCdf((line-p.mu)/p.sigma) : 1-poisCdf(line,p.mu); }
+}
+
+function priceProps(model,props){
+  const out=[];
+  for(const r of props){
+    if(!STAT_CFG[r.stat]) continue;
+    const line=num(r.line); if(isNaN(line)) continue;
+    const pj=model.project(r.player,r.team,r.opponent,r.stat,r.home);
+    const pOver=Model.pOver(pj,line), pUnder=1-pOver, side=pOver>=pUnder?'OVER':'UNDER', pp=Math.max(pOver,pUnder);
+    const oo=num(r.over_odds), uo=num(r.under_odds); let edge=NaN,kelly=NaN,bookP=NaN,fairO=NaN;
+    if(!isNaN(oo)&&!isNaN(uo)){
+      const po=a2p(oo), pu=a2p(uo); fairO=po/(po+pu); bookP=side==='OVER'?fairO:1-fairO;
+      const odds=side==='OVER'?oo:uo, dec=1+(odds<0?100/-odds:odds/100), b=dec-1;
+      edge=pp-bookP; kelly=Math.max(0,(pp*b-(1-pp))/b)*C.KELLY*100;
+    }
+    out.push({player:r.player,team:r.team,opp:r.opponent,stat:r.stat,line,home:r.home,over_odds:r.over_odds,under_odds:r.under_odds,
+      mu:pj.mu,sigma:pj.sigma,kind:pj.kind,pOver,pUnder,pick:side,pickProb:pp,edge,kelly,bookP,fairO,n:pj.n,
+      conf:pj.n<C.MIN_G?'low':'ok',flag:(!isNaN(edge)&&edge>=C.EDGE_FLAG&&pj.n>=C.MIN_G)?'VALUE':'',pj});
+  }
+  return out.sort((a,b)=>b.pickProb-a.pickProb);
+}
+
+/* ================= demo data (synthetic) ================= */
+function rngf(seed){ let a=seed>>>0; return ()=>{ a|=0;a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return((t^t>>>14)>>>0)/4294967296; }; }
+function makeDemo(){
+  const R=rngf(7), U=(a,b)=>a+(b-a)*R(), N=(m,s)=>m+s*Math.sqrt(-2*Math.log(R()||1e-9))*Math.cos(2*Math.PI*R());
+  const LN=(s)=>Math.exp(N(0,s)), POI=l=>{ let L=Math.exp(-l),k=0,p=1; do{k++;p*=R();}while(p>L); return k-1; };
+  const names=['Texas','Oklahoma','Alabama','Georgia','Ohio St','Oregon','Penn St','Notre Dame','Tennessee','LSU','Clemson','Utah'].map((n,i)=>'T'+String(i+1).padStart(2,'0'));
+  const teams=names.map(t=>({team:t,off_pass_ypg:U(180,300).toFixed(1),off_rush_ypg:U(100,220).toFixed(1),off_ppg:U(21,38).toFixed(1),
+    def_pass_ypg:U(170,290).toFixed(1),def_rush_ypg:U(90,200).toFixed(1),def_ppg:U(18,35).toFixed(1)}));
+  const ti={}; teams.forEach(t=>ti[t.team]=t);
+  const natP=mean(teams.map(t=>+t.def_pass_ypg)), natR=mean(teams.map(t=>+t.def_rush_ypg));
+  const base=[]; names.forEach(t=>{ const x=ti[t];
+    base.push([`${t} QB`,t,'pass_yds',+x.off_pass_ypg],[`${t} QB`,t,'pass_td',+x.off_ppg/15],[`${t} RB`,t,'rush_yds',+x.off_rush_ypg*.55],[`${t} WR1`,t,'rec_yds',+x.off_pass_ypg*.28]); });
+  const players=[],games=[],props=[], start=new Date('2026-09-05T00:00:00Z');
+  for(let wk=0;wk<9;wk++){
+    const perm=[...names].sort(()=>R()-.5), date=new Date(start.getTime()+wk*7*864e5).toISOString().slice(0,10);
+    for(let i=0;i<perm.length;i+=2){ const a=perm[i],b=perm[i+1];
+      const pa=Math.max(0,N(+ti[a].off_ppg,8)), pb=Math.max(0,N(+ti[b].off_ppg,8));
+      games.push({date,team:a,opponent:b,pts_for:Math.round(pa),pts_against:Math.round(pb),home:1},{date,team:b,opponent:a,pts_for:Math.round(pb),pts_against:Math.round(pa),home:0});
+      for(const [pl,tm,st,bv] of base){ if(tm!==a&&tm!==b) continue; const opp=tm===a?b:a, cat=STAT_CFG[st].cat;
+        const ratio=Math.pow(+ti[opp][`def_${cat}_ypg`]/(cat==='pass'?natP:natR),C.ALPHA), home=tm===a?1:0;
+        if(wk<8) players.push({date,player:pl,team:tm,opponent:opp,stat:st,value:STAT_CFG[st].kind==='cont'?Math.round(Math.max(0,bv*ratio*LN(.25))):POI(Math.max(.05,bv*ratio)),home});
+        else props.push({player:pl,team:tm,opponent:opp,stat:st,line:STAT_CFG[st].kind==='cont'?Math.round(bv*2)/2:(st==='pass_td'?1.5:.5),home,over_odds:-110,under_odds:-110});
+      } } }
+  return {players,teams,games,props};
+}
+
+/* ================= state / UI ================= */
+const S = { raw:{}, picks:[], sel:null, sortKey:'pickProb', sortDir:-1 };
+const $ = id => document.getElementById(id);
+const fmt = (x,d=2) => (x==null||isNaN(x)) ? '' : Number(x).toFixed(d);
+const setStatus = (t,bad) => { $('status').textContent=t; $('status').style.color=bad?'#ff7b7b':''; };
+
+document.querySelectorAll('input[type=file]').forEach(inp => inp.addEventListener('change', async e => {
+  const f=e.target.files[0]; if(!f) return;
+  S.raw[inp.dataset.k]=parseCSV(await f.text()); inp.parentElement.classList.add('ok');
+  setStatus(`${inp.dataset.k}: ${S.raw[inp.dataset.k].length} rows loaded`);
+}));
+$('demo').onclick = () => { S.raw=makeDemo(); ['lp','lt','lg','lq'].forEach(i=>$(i).classList.add('ok')); setStatus('Demo loaded (SYNTHETIC data, not real teams).'); run(); };
+$('run').onclick = run;
+fetch('/api/health').then(r=>r.ok&&($('api').style.display='')).catch(()=>{});
+$('api').onclick = async () => { try { const r=await fetch('/api/raw'); if(!r.ok) throw new Error(await r.text());
+  S.raw=await r.json(); ['lp','lt','lg','lq'].forEach(i=>$(i).classList.add('ok')); setStatus('Loaded from API.'); run(); } catch(e){ setStatus('API: '+e.message,true); } };
+$('legs').onchange = renderParlay;
+
+function validate(){
+  const need={players:['date','player','team','opponent','stat','value'],teams:['team','def_pass_ypg','def_rush_ypg'],games:['date','team','opponent','pts_for','pts_against'],props:['player','team','opponent','stat','line']};
+  for(const [k,cols] of Object.entries(need)){
+    if(!S.raw[k]||!S.raw[k].length) return `Missing ${k}.csv`;
+    const miss=cols.filter(c=>!(c in S.raw[k][0])); if(miss.length) return `${k}.csv missing columns: ${miss.join(', ')}`;
+  } return null;
+}
+function run(){
+  const err=validate(); if(err){ setStatus(err,true); return; }
+  const m=new Model(S.raw.players,S.raw.teams,S.raw.games);
+  S.picks=priceProps(m,S.raw.props); S.sel=null;
+  setStatus(`${S.picks.length} props priced from ${S.raw.players.length} player-games.`);
+  renderTable(); buildScene(); renderParlay(); $('trace').innerHTML='<span style="color:var(--dim)">Click a bar or a row.</span>';
+}
+
+function renderTable(){
+  const k=S.sortKey, d=S.sortDir, rows=[...S.picks].sort((a,b)=>{ const x=a[k],y=b[k]; if(typeof x==='string') return d*x.localeCompare(y); return d*((isNaN(x)?-1e9:x)-(isNaN(y)?-1e9:y)); });
+  $('tbl').tBodies[0].innerHTML=rows.map(r=>`<tr data-i="${S.picks.indexOf(r)}" class="${S.sel===r?'sel':''}">
+    <td>${r.player}</td><td>${r.stat}</td><td>${fmt(r.line,1)}</td><td>${fmt(r.mu)}</td><td>${(r.pickProb*100).toFixed(1)}%</td>
+    <td class="${r.pick==='OVER'?'over':'under'}">${r.pick}</td><td>${isNaN(r.edge)?'':(r.edge*100).toFixed(1)+'%'}${r.flag?' <span class="val">V</span>':''}</td><td>${fmt(r.kelly)}</td></tr>`).join('');
+  $('tbl').tBodies[0].querySelectorAll('tr').forEach(tr=>tr.onclick=()=>select(S.picks[+tr.dataset.i]));
+}
+document.querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{ const k=th.dataset.s; S.sortDir=S.sortKey===k?-S.sortDir:-1; S.sortKey=k; renderTable(); });
+
+function select(r){
+  S.sel=r; renderTable(); highlight(r);
+  const p=r.pj; const maxV=Math.max(...p.steps.map(s=>s.v),r.line,1e-9);
+  const stepsHtml=p.steps.map(s=>`<div class="step"><div><b>${s.k}</b>${s.note?`<div style="color:var(--dim);font-size:11px">${s.note}</div>`:''}</div>
+    <div><code>${s.f}</code>${s.mult!=null?`<div style="color:var(--dim);font-size:11px">factor ${s.mult.toFixed(3)}</div>`:''}<div class="bar"><i style="width:${Math.min(100,s.v/maxV*100)}%"></i></div></div>
+    <div class="v">${s.v.toFixed(3)}</div></div>`).join('');
+  const z=(r.line-r.mu)/r.sigma;
+  const pf = r.kind==='cont' ? `P(over) = 1 − Φ((${r.line} − ${r.mu.toFixed(2)}) / ${r.sigma.toFixed(2)}) = 1 − Φ(${z.toFixed(2)})`
+                             : `P(over) = 1 − Poisson CDF(⌊${r.line}⌋; λ=${r.mu.toFixed(3)})`;
+  let book='';
+  if(!isNaN(r.edge)) book=`<div class="step"><div><b>Book fair P</b><div style="color:var(--dim);font-size:11px">de-vigged</div></div><div><code>p_o/(p_o+p_u), odds ${r.over_odds}/${r.under_odds}</code></div><div class="v">${(r.bookP*100).toFixed(1)}%</div></div>
+    <div class="step"><div><b>Edge</b></div><div><code>P(pick) − book fair P</code></div><div class="v">${(r.edge*100).toFixed(1)}%</div></div>
+    <div class="step"><div><b>¼ Kelly stake</b></div><div><code>¼·(p·b − (1−p))/b</code></div><div class="v">${r.kelly.toFixed(2)}%</div></div>`;
+  $('trace').innerHTML=`<div style="margin-bottom:6px"><b>${r.player}</b> · ${r.stat} · line ${r.line} vs ${r.opp} ${r.conf==='low'?'<span class="warn">(low sample: n='+r.n+')</span>':''}</div>${stepsHtml}
+    <div class="step"><div><b>Projection μ</b></div><div><code>μ₀ × factors</code></div><div class="v">${r.mu.toFixed(3)}</div></div>
+    <div class="step"><div><b>Probability</b></div><div><code>${pf}</code></div><div class="v"><span class="${r.pick==='OVER'?'over':'under'}">${(r.pickProb*100).toFixed(1)}% ${r.pick}</span></div></div>${book}`;
+}
+
+function renderParlay(){
+  const n=Math.max(1,+$('legs').value||3), pool=S.picks.filter(p=>p.conf==='ok'), used=new Set(), ch=[];
+  for(const p of pool){ if(used.has(p.team)) continue; ch.push(p); used.add(p.team); if(ch.length===n) break; }
+  if(!ch.length){ $('parlay').textContent=S.picks.length?'No picks with enough history.':''; return; }
+  const prob=ch.reduce((s,p)=>s*p.pickProb,1);
+  $('parlay').innerHTML=ch.map(p=>`${p.player} ${p.stat} <span class="${p.pick==='OVER'?'over':'under'}">${p.pick} ${p.line}</span> <span style="color:var(--dim)">${(p.pickProb*100).toFixed(1)}%</span>`).join('<br>')+
+    `<div style="margin-top:6px;color:var(--txt)">Hit chance ${(prob*100).toFixed(1)}% · fair odds ${(1/prob).toFixed(2)}x</div><div class="warn">Legs treated as independent.</div>`;
+}
+
+
+/* ---------- key vault UI ---------- */
+const vm=(m,bad)=>{ $('vmsg').textContent=m; $('vmsg').style.color=bad?'#ff7b7b':''; };
+async function vcall(path,method='GET',body){ const r=await fetch('/api/vault/'+path,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.detail||r.statusText); return j; }
+function vrender(st){
+  $('vlock').style.display=st.unlocked?'none':''; $('vopen').style.display=st.unlocked?'':'none';
+  $('vunlock').textContent=st.exists?'Unlock':'Create vault';
+  $('vkeys').innerHTML=Object.entries(st.known).map(([k,label])=>`<div style="margin:6px 0"><div style="font-size:11px;color:var(--dim)">${label} <code>${k}</code> ${st.stored[k]?'<span class="over">saved '+st.stored[k]+'</span>':''}</div>
+    <div style="display:flex;gap:6px"><input type="password" autocomplete="off" data-k="${k}" placeholder="${st.stored[k]?'replace key':'paste key'}" style="flex:1;padding:6px;background:#16213a;color:var(--txt);border:1px solid var(--line);border-radius:6px">
+    <button data-save="${k}">Save</button>${st.stored[k]?`<button data-del="${k}">Delete</button>`:''}</div></div>`).join('');
+  $('vkeys').querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{ const k=b.dataset.save, inp=$('vkeys').querySelector(`input[data-k=${k}]`);
+    try{ vrender(await vcall('set','POST',{name:k,value:inp.value})); vm('Saved '+k); }catch(e){ vm(e.message,true); } });
+  $('vkeys').querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{ try{ vrender(await vcall('key/'+b.dataset.del,'DELETE')); vm('Deleted'); }catch(e){ vm(e.message,true); } });
+}
+async function vopen(){ $('vault').style.display='flex'; try{ vrender(await vcall('status')); vm(''); }catch(e){ vm(e.message,true); } }
+fetch('/api/vault/status').then(r=>r.ok&&($('keys').style.display='')).catch(()=>{});
+$('keys').onclick=vopen; $('vx').onclick=()=>$('vault').style.display='none';
+$('vunlock').onclick=async()=>{ try{ const st=await vcall('unlock','POST',{passphrase:$('vpass').value}); $('vpass').value=''; vrender(st); vm('Unlocked'); }catch(e){ vm(e.message,true); } };
+$('vpass').addEventListener('keydown',e=>{ if(e.key==='Enter') $('vunlock').click(); });
+$('vlockbtn').onclick=async()=>{ vrender(await vcall('lock','POST')); vm('Locked'); };
+
+/* ================= exports ================= */
+$('xp').onclick=()=>{ if(!S.picks.length) return setStatus('Run the model first.',true);
+  download('picks_values.csv',toCSV(S.picks.map(r=>({player:r.player,team:r.team,opp:r.opp,stat:r.stat,line:r.line,projection:fmt(r.mu,3),sigma:fmt(r.sigma,3),p_over:fmt(r.pOver,4),
+    pick:r.pick,pick_prob:fmt(r.pickProb,4),edge_vs_book:fmt(r.edge,4),kelly_stake_pct:fmt(r.kelly,2),n_games:r.n,confidence:r.conf,flag:r.flag})),
+    ['player','team','opp','stat','line','projection','sigma','p_over','pick','pick_prob','edge_vs_book','kelly_stake_pct','n_games','confidence','flag'])); };
+$('xf').onclick=()=>{ if(!S.picks.length) return setStatus('Run the model first.',true);
+  const cols=['player','team','opp','stat','line','mu','sigma','kind','over_odds','under_odds','p_over','p_under','pick','pick_prob','book_fair_over','edge','kelly_pct'];
+  const rows=S.picks.map((r,i)=>{ const n=i+2, P=x=>`IF(${x}<0,-${x}/(-${x}+100),100/(${x}+100))`;
+    return {player:r.player,team:r.team,opp:r.opp,stat:r.stat,line:r.line,mu:fmt(r.mu,4),sigma:fmt(r.sigma,4),kind:r.kind,over_odds:r.over_odds??'',under_odds:r.under_odds??'',
+      p_over:`=IF(H${n}="cont",1-NORM.DIST(E${n},F${n},G${n},TRUE),1-POISSON.DIST(FLOOR(E${n},1),F${n},TRUE))`,
+      p_under:`=1-K${n}`, pick:`=IF(K${n}>=L${n},"OVER","UNDER")`, pick_prob:`=MAX(K${n},L${n})`,
+      book_fair_over:`=IF(OR(I${n}="",J${n}=""),"",${P('I'+n)}/(${P('I'+n)}+${P('J'+n)}))`,
+      edge:`=IF(O${n}="","",N${n}-IF(M${n}="OVER",O${n},1-O${n}))`,
+      kelly_pct:`=IF(O${n}="","",100*${C.KELLY}*MAX(0,(N${n}*(IF(IF(M${n}="OVER",I${n},J${n})<0,100/-IF(M${n}="OVER",I${n},J${n}),IF(M${n}="OVER",I${n},J${n})/100))-(1-N${n}))/(IF(IF(M${n}="OVER",I${n},J${n})<0,100/-IF(M${n}="OVER",I${n},J${n}),IF(M${n}="OVER",I${n},J${n})/100))))`}; });
+  download('picks_formulas.csv',toCSV(rows,cols)); setStatus('Formula CSV saved. Open in Excel/Sheets: mu & sigma are values, probabilities are live formulas.'); };
+
+/* ================= 3D ================= */
+const stage=$('stage'), renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2)); stage.prepend(renderer.domElement);
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x070b14); scene.fog=new THREE.Fog(0x070b14,40,110);
+const camera=new THREE.PerspectiveCamera(50,1,.1,300); camera.position.set(22,18,26);
+const controls=new OrbitControls(camera,renderer.domElement); controls.enableDamping=true; controls.target.set(0,3,0);
+scene.add(new THREE.HemisphereLight(0x9fb8ff,0x101826,1.1));
+const dl=new THREE.DirectionalLight(0xffffff,1.6); dl.position.set(15,30,12); scene.add(dl);
+const world=new THREE.Group(); scene.add(world);
+const ray=new THREE.Raycaster(), mouse=new THREE.Vector2(); let bars=[], hoverBar=null;
+
+function label(text,color='#9db4e0',size=44){
+  const cv=document.createElement('canvas'), g=cv.getContext('2d'); g.font=`600 ${size}px system-ui`; const w=Math.ceil(g.measureText(text).width)+16;
+  cv.width=w; cv.height=size+16; g.font=`600 ${size}px system-ui`; g.fillStyle=color; g.textBaseline='middle'; g.fillText(text,8,cv.height/2);
+  const t=new THREE.CanvasTexture(cv); t.colorSpace=THREE.SRGBColorSpace;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:false})); s.scale.set(cv.width/60,cv.height/60,1); return s;
+}
+function clear(){ while(world.children.length){ const o=world.children.pop(); o.traverse(c=>{ c.geometry?.dispose(); if(c.material){ c.material.map?.dispose(); c.material.dispose(); } }); } bars=[]; }
+
+function buildScene(){
+  clear();
+  const picks=S.picks.slice(0,160), players=[...new Set(picks.map(p=>p.player))], stats=[...new Set(picks.map(p=>p.stat))];
+  const gx=1.5, gz=2.4, H=12, ox=-(players.length-1)*gx/2, oz=-(stats.length-1)*gz/2;
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(players.length*gx+4,stats.length*gz+4),new THREE.MeshStandardMaterial({color:0x0e1a2e,roughness:.9}));
+  floor.rotation.x=-Math.PI/2; world.add(floor);
+  const grid=new THREE.GridHelper(Math.max(players.length*gx+4,stats.length*gz+4),Math.max(players.length,stats.length)*2,0x24385f,0x15233e); grid.position.y=.01; world.add(grid);
+  const be=new THREE.Mesh(new THREE.PlaneGeometry(players.length*gx+2,stats.length*gz+2),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.09,side:THREE.DoubleSide,depthWrite:false}));
+  be.rotation.x=-Math.PI/2; be.position.y=.5238*H; world.add(be);
+  const p50=be.clone(); p50.material=be.material.clone(); p50.material.color.set(0x4d8dff); p50.position.y=.5*H; world.add(p50);
+  players.forEach((pl,i)=>{ const s=label(pl,'#9db4e0',40); s.position.set(ox+i*gx,-.6,oz-gz*.9-1.2); s.scale.multiplyScalar(.8); world.add(s); });
+  stats.forEach((st,j)=>{ const s=label(st,'#ffd27d',46); s.position.set(ox-gx*.9-2,.3,oz+j*gz); world.add(s); });
+  picks.forEach(p=>{
+    const i=players.indexOf(p.player), j=stats.indexOf(p.stat), h=Math.max(.05,p.pickProb*H), col=p.pick==='OVER'?0x27d98a:0xffb347;
+    const m=new THREE.Mesh(new THREE.BoxGeometry(1,1,1.6),new THREE.MeshStandardMaterial({color:col,roughness:.35,metalness:.2,emissive:col,emissiveIntensity:p.flag?.55:.12,transparent:true,opacity:p.conf==='low'?.45:1}));
+    m.scale.y=h; m.position.set(ox+i*gx,h/2,oz+j*gz); m.userData.pick=p; world.add(m); bars.push(m);
+    if(p.flag){ const r=new THREE.Mesh(new THREE.TorusGeometry(.85,.07,8,32),new THREE.MeshBasicMaterial({color:0xffffff})); r.rotation.x=Math.PI/2; r.position.set(m.position.x,h+.2,m.position.z); world.add(r); }
+  });
+  const R=Math.max(players.length*gx,stats.length*gz*3); camera.position.set(R*.45,R*.62,R*.95); controls.target.set(0,H*.3,0);
+}
+function highlight(r){ bars.forEach(b=>{ const on=b.userData.pick===r; b.material.emissiveIntensity=on?1.2:(b.userData.pick.flag?.55:.12); }); }
+
+function size(){ const w=stage.clientWidth,h=stage.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+new ResizeObserver(size).observe(stage); size();
+const tip=$('tip');
+renderer.domElement.addEventListener('pointermove',e=>{ const rc=renderer.domElement.getBoundingClientRect();
+  mouse.set(((e.clientX-rc.left)/rc.width)*2-1,-((e.clientY-rc.top)/rc.height)*2+1); ray.setFromCamera(mouse,camera);
+  const hit=ray.intersectObjects(bars)[0]; hoverBar=hit?hit.object:null;
+  if(hoverBar){ const p=hoverBar.userData.pick; tip.style.display='block'; tip.style.left=(e.clientX-rc.left+14)+'px'; tip.style.top=(e.clientY-rc.top+14)+'px';
+    tip.innerHTML=`<b>${p.player}</b> ${p.stat}<br>line ${p.line} · proj ${p.mu.toFixed(1)}<br>${p.pick} ${(p.pickProb*100).toFixed(1)}%`; } else tip.style.display='none'; });
+let down=null; renderer.domElement.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+renderer.domElement.addEventListener('pointerup',e=>{ if(down&&Math.hypot(e.clientX-down[0],e.clientY-down[1])<4&&hoverBar) select(hoverBar.userData.pick); down=null; });
+renderer.setAnimationLoop(()=>{ controls.update(); renderer.render(scene,camera); });
+window.__app={S,run,makeDemo};
+</script>
+</body>
+</html>
