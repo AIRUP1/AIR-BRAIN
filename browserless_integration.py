@@ -629,8 +629,7 @@ class BrowserlessInstagramScraper:
         normalized_username = username.replace('@', '').strip().lower()
         raise InstagramProfileScrapingDisabledError(
             "Instagram profile scraping is disabled for @%s. Use the official "
-            "Meta API or an owner-provided export with "
-            "instagram_organic_growth_toolkit.py instead."
+            "Meta (Instagram Graph) API instead."
             % normalized_username
         )
 

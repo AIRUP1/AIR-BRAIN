@@ -263,15 +263,14 @@ def register_browserless_routes(app: FastAPI):
         """
         Deprecated: Instagram profile scraping is intentionally unavailable.
 
-        Use the official Meta API or an owner-provided metric export with the
-        Instagram Organic Growth Toolkit. The retained route returns a clear
+        Use the official Meta (Instagram Graph) API. The retained route returns a clear
         status instead of silently attempting browser-based collection.
         """
         raise HTTPException(
             status_code=410,
             detail=(
-                "Instagram profile scraping is disabled. Use the official Meta API "
-                "or an owner-provided export with instagram_organic_growth_toolkit.py."
+                "Instagram profile scraping is disabled. Use the official Meta "
+                "(Instagram Graph) API."
             ),
         )
 
@@ -283,8 +282,8 @@ def register_browserless_routes(app: FastAPI):
         raise HTTPException(
             status_code=410,
             detail=(
-                "Instagram profile scraping is disabled. Use the official Meta API "
-                "or an owner-provided export with instagram_organic_growth_toolkit.py."
+                "Instagram profile scraping is disabled. Use the official Meta "
+                "(Instagram Graph) API."
             ),
         )
     
