@@ -56,7 +56,7 @@ The reviewed durable-data foundation is in [supabase/migrations/20260925_000001_
 
 ## Development notes
 
-The project retains the read-only, owner-authorized Instagram Organic Growth Toolkit and its original tests. It does not scrape or publish to Instagram.
+The project does not scrape or publish to Instagram; browser-based Instagram scraping routes return HTTP 410 and point to the official Meta API.
 
 ```bash
 python cd /workspaces/AIR-BRAIN
