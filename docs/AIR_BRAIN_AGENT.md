@@ -38,3 +38,20 @@ Data lives in `./data/air_brain/` (`air_brain.db`, `icp.json`, `memories/`, `exp
 - Collects business contact information only; every claim needs evidence (url + quote); unknown fields stay null.
 - Scraped text is passed to Claude as untrusted data (prompt-injection hardening).
 - Outreach is out of scope: before contacting leads, check CAN-SPAM / TCPA / GDPR rules and consent for your use case.
+
+## Orchestrator, model gateway and workflow schema
+
+`python -m air_brain_agent brain "find 10 solar installers in Texas" --priority high` routes a task to a workflow and runs it.
+
+- **Workflow schema** (`workflow/schema.py`, published as `docs/workflow.schema.json`): a validated DAG of `input`, `tool`,
+  `llm`, `router` and `output` nodes. Loading a workflow rejects cycles, unreachable nodes, unknown edge targets, router
+  edges without a declared route, `{{node.path}}` templates that point at unknown or non-upstream nodes, and unknown fields.
+  Regenerate the schema with `python -m air_brain_agent schema > docs/workflow.schema.json` (a test fails if it drifts).
+- **Engine** (`workflow/engine.py`): topological execution, router branching (inactive branches are skipped), typed input
+  validation, per-node retries, `on_error: fail|continue`, and a per-node trace (status, attempts, duration, model used).
+- **Gateway** (`gateway.py`): ranks the model catalog by complexity, latency ceiling and cost preference, then falls back down
+  the ranking on failure with a circuit breaker. Anthropic is built in; add other providers with `CallableProvider`.
+- **Orchestrator** (`orchestrator.py`): explicit `task_type` → keyword rules → LLM classification → `general` fallback;
+  `priority` sets the model policy. Workflows live in `workflows/*.json` and are validated, including tool names, at startup.
+
+Shipped workflows: `lead_research`, `lead_report`, `lead_feedback`, `general`. Add one by dropping a JSON file in `workflows/`.

@@ -1,0 +1,519 @@
+{
+  "$defs": {
+    "Edge": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "title": "Edge",
+      "type": "object"
+    },
+    "FieldSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "type": {
+          "default": "string",
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "object",
+            "array"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "FieldSpec",
+      "type": "object"
+    },
+    "InputNode": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FieldSpec"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "on_error": {
+          "default": "fail",
+          "enum": [
+            "fail",
+            "continue"
+          ],
+          "title": "On Error",
+          "type": "string"
+        },
+        "retries": {
+          "default": 0,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "type": {
+          "const": "input",
+          "default": "input",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "InputNode",
+      "type": "object"
+    },
+    "LLMNode": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "json_output": {
+          "default": false,
+          "title": "Json Output",
+          "type": "boolean"
+        },
+        "max_tokens": {
+          "default": 1024,
+          "maximum": 64000,
+          "minimum": 1,
+          "title": "Max Tokens",
+          "type": "integer"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelRequest"
+        },
+        "on_error": {
+          "default": "fail",
+          "enum": [
+            "fail",
+            "continue"
+          ],
+          "title": "On Error",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "retries": {
+          "default": 0,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "system": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "System"
+        },
+        "type": {
+          "const": "llm",
+          "default": "llm",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "prompt"
+      ],
+      "title": "LLMNode",
+      "type": "object"
+    },
+    "ModelRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "complexity": {
+          "default": "moderate",
+          "enum": [
+            "simple",
+            "moderate",
+            "complex"
+          ],
+          "title": "Complexity",
+          "type": "string"
+        },
+        "cost": {
+          "default": "balanced",
+          "enum": [
+            "optimize_cost",
+            "balanced",
+            "optimize_quality"
+          ],
+          "title": "Cost",
+          "type": "string"
+        },
+        "latency": {
+          "default": "standard",
+          "enum": [
+            "realtime",
+            "fast",
+            "standard",
+            "batch"
+          ],
+          "title": "Latency",
+          "type": "string"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        }
+      },
+      "title": "ModelRequest",
+      "type": "object"
+    },
+    "OutputNode": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "fields": {
+          "additionalProperties": true,
+          "title": "Fields",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "on_error": {
+          "default": "fail",
+          "enum": [
+            "fail",
+            "continue"
+          ],
+          "title": "On Error",
+          "type": "string"
+        },
+        "retries": {
+          "default": 0,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "type": {
+          "const": "output",
+          "default": "output",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "fields"
+      ],
+      "title": "OutputNode",
+      "type": "object"
+    },
+    "RouteRule": {
+      "additionalProperties": false,
+      "properties": {
+        "contains": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Contains",
+          "type": "array"
+        },
+        "route": {
+          "title": "Route",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contains",
+        "route"
+      ],
+      "title": "RouteRule",
+      "type": "object"
+    },
+    "RouterNode": {
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "title": "Default",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelRequest"
+        },
+        "on": {
+          "title": "On",
+          "type": "string"
+        },
+        "on_error": {
+          "default": "fail",
+          "enum": [
+            "fail",
+            "continue"
+          ],
+          "title": "On Error",
+          "type": "string"
+        },
+        "retries": {
+          "default": 0,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "routes": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Routes",
+          "type": "array"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/RouteRule"
+          },
+          "title": "Rules",
+          "type": "array"
+        },
+        "type": {
+          "const": "router",
+          "default": "router",
+          "title": "Type",
+          "type": "string"
+        },
+        "use_llm": {
+          "default": false,
+          "title": "Use Llm",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "on",
+        "routes",
+        "default"
+      ],
+      "title": "RouterNode",
+      "type": "object"
+    },
+    "ToolNode": {
+      "additionalProperties": false,
+      "properties": {
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "on_error": {
+          "default": "fail",
+          "enum": [
+            "fail",
+            "continue"
+          ],
+          "title": "On Error",
+          "type": "string"
+        },
+        "retries": {
+          "default": 0,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "type": {
+          "const": "tool",
+          "default": "tool",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "tool"
+      ],
+      "title": "ToolNode",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/Edge"
+      },
+      "title": "Edges",
+      "type": "array"
+    },
+    "name": {
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+      "title": "Name",
+      "type": "string"
+    },
+    "nodes": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "input": "#/$defs/InputNode",
+            "llm": "#/$defs/LLMNode",
+            "output": "#/$defs/OutputNode",
+            "router": "#/$defs/RouterNode",
+            "tool": "#/$defs/ToolNode"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/InputNode"
+          },
+          {
+            "$ref": "#/$defs/ToolNode"
+          },
+          {
+            "$ref": "#/$defs/LLMNode"
+          },
+          {
+            "$ref": "#/$defs/RouterNode"
+          },
+          {
+            "$ref": "#/$defs/OutputNode"
+          }
+        ]
+      },
+      "minItems": 2,
+      "title": "Nodes",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "version": {
+      "default": "1.0.0",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "nodes"
+  ],
+  "title": "Workflow",
+  "type": "object"
+}

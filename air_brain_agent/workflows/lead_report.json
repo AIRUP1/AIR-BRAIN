@@ -1,0 +1,12 @@
+{
+  "schema_version": "1",
+  "name": "lead_report",
+  "version": "1.0.0",
+  "description": "Show the current ranked leads without doing any new research.",
+  "nodes": [
+    {"id": "start", "type": "input", "fields": [{"name": "task", "type": "string", "required": false, "default": "report"}]},
+    {"id": "report", "type": "tool", "tool": "lead.report", "args": {"min_score": 0}},
+    {"id": "done", "type": "output", "fields": {"report": "{{report.markdown}}"}}
+  ],
+  "edges": [{"source": "start", "target": "report"}, {"source": "report", "target": "done"}]
+}
