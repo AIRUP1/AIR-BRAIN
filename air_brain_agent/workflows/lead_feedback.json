@@ -1,0 +1,16 @@
+{
+  "schema_version": "1",
+  "name": "lead_feedback",
+  "version": "1.0.0",
+  "description": "Record accepted/rejected/needs_work feedback on a lead and retrain the scoring weights.",
+  "nodes": [
+    {"id": "start", "type": "input", "fields": [
+      {"name": "lead_key", "type": "string"},
+      {"name": "verdict", "type": "string", "description": "accepted | rejected | needs_work"},
+      {"name": "reason", "type": "string", "required": false}]},
+    {"id": "fb", "type": "tool", "tool": "lead.feedback",
+     "args": {"lead_key": "{{start.lead_key}}", "verdict": "{{start.verdict}}", "reason": "{{start.reason}}"}},
+    {"id": "done", "type": "output", "fields": {"result": "{{fb}}"}}
+  ],
+  "edges": [{"source": "start", "target": "fb"}, {"source": "fb", "target": "done"}]
+}

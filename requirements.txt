@@ -12,6 +12,10 @@ numpy>=1.26,<3.0
 pandas>=2.2,<3.0
 scikit-learn>=1.4,<2.0
 
+# AIR BRAIN lead-research agent
+anthropic>=2.10,<3.0
+pydantic>=2.6,<3.0
+
 # Test tooling
 pytest>=8.0,<9.0
 httpx>=0.27,<1.0
