@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dialer</title>
+  <style>
+    :root {
+      --bg: #f4f5f7; --panel: #ffffff; --text: #111827; --muted: #6b7280;
+      --key: #eef0f4; --key-active: #dde1e8; --call: #16a34a; --end: #dc2626; --border: #e5e7eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a; --panel: #111827; --text: #f3f4f6; --muted: #9ca3af;
+        --key: #1f2937; --key-active: #374151; --border: #1f2937;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      display: flex; justify-content: center; padding: 16px;
+    }
+    main { width: 100%; max-width: 760px; display: grid; gap: 16px; grid-template-columns: 1fr; align-content: start; }
+    @media (min-width: 720px) { main { grid-template-columns: 340px 1fr; } }
+    section { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    #display {
+      width: 100%; font-size: 28px; text-align: center; padding: 12px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text); letter-spacing: 1px;
+    }
+    #status { text-align: center; color: var(--muted); font-size: 13px; min-height: 18px; margin: 8px 0; }
+    .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+    .pad button {
+      height: 62px; border: 0; border-radius: 14px; background: var(--key); color: var(--text);
+      font-size: 22px; font-weight: 600; cursor: pointer; line-height: 1.1;
+    }
+    .pad button small { display: block; font-size: 10px; font-weight: 500; color: var(--muted); letter-spacing: 2px; }
+    .pad button:active { background: var(--key-active); }
+    .actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .actions button, .actions a {
+      height: 52px; border: 0; border-radius: 14px; font-size: 16px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; text-decoration: none;
+    }
+    #call { background: var(--call); color: #fff; }
+    #hangup { background: var(--end); color: #fff; }
+    #back { background: var(--key); color: var(--text); }
+    #call[aria-disabled="true"] { opacity: .4; pointer-events: none; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    li:last-child { border-bottom: 0; }
+    .num { font-weight: 600; }
+    .meta { color: var(--muted); font-size: 12px; }
+    li button { border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
+    .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .head button { border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+    .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <section aria-label="Dialer">
+      <h1>Dialer</h1>
+      <input id="display" inputmode="tel" autocomplete="off" placeholder="Enter number" aria-label="Phone number" />
+      <div id="status" role="status" aria-live="polite"></div>
+      <div class="pad" id="pad"></div>
+      <div class="actions">
+        <button id="back" aria-label="Delete last digit">&#9003;</button>
+        <a id="call" href="#" aria-disabled="true" role="button">Call</a>
+        <button id="hangup" aria-label="End call">End</button>
+      </div>
+    </section>
+    <section aria-label="Call log">
+      <div class="head"><h1>Recent calls</h1><button id="clear">Clear</button></div>
+      <ul id="log"></ul>
+    </section>
+  </main>
+
+  <script>
+    const KEYS = [
+      ['1', ''], ['2', 'ABC'], ['3', 'DEF'], ['4', 'GHI'], ['5', 'JKL'], ['6', 'MNO'],
+      ['7', 'PQRS'], ['8', 'TUV'], ['9', 'WXYZ'], ['*', ''], ['0', '+'], ['#', ''],
+    ];
+    const DTMF = {
+      '1': [697, 1209], '2': [697, 1336], '3': [697, 1477], '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
+      '7': [852, 1209], '8': [852, 1336], '9': [852, 1477], '*': [941, 1209], '0': [941, 1336], '#': [941, 1477],
+    };
+    const display = document.getElementById('display');
+    const statusEl = document.getElementById('status');
+    const callBtn = document.getElementById('call');
+    const logEl = document.getElementById('log');
+    let audio = null, timer = null, startedAt = 0, active = null;
+
+    function tone(key) {
+      const f = DTMF[key];
+      if (!f) return;
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        const gain = audio.createGain();
+        gain.gain.value = 0.08;
+        gain.connect(audio.destination);
+        f.forEach(hz => {
+          const o = audio.createOscillator();
+          o.frequency.value = hz;
+          o.connect(gain);
+          o.start();
+          o.stop(audio.currentTime + 0.12);
+        });
+      } catch (e) { /* audio unavailable: keys still work */ }
+    }
+
+    function clean(v) { return v.replace(/[^0-9+*#]/g, ''); }
+    function format(n) {
+      const d = n.replace(/\D/g, '');
+      if (n.startsWith('+') || d.length < 7) return n;
+      if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+      return n;
+    }
+    function refresh() {
+      const n = clean(display.value);
+      callBtn.setAttribute('aria-disabled', n.length < 3 ? 'true' : 'false');
+      callBtn.href = n.length >= 3 ? 'tel:' + n : '#';
+    }
+    function press(k) { tone(k); display.value = clean(display.value + k); refresh(); }
+
+    const pad = document.getElementById('pad');
+    KEYS.forEach(([k, sub]) => {
+      const b = document.createElement('button');
+      b.innerHTML = `${k}${sub ? `<small>${sub}</small>` : ''}`;
+      b.addEventListener('click', () => press(k));
+      pad.appendChild(b);
+    });
+    display.addEventListener('input', () => { display.value = clean(display.value); refresh(); });
+    display.addEventListener('keydown', e => { if (e.key === 'Enter') callBtn.click(); });
+    document.getElementById('back').addEventListener('click', () => { display.value = display.value.slice(0, -1); refresh(); });
+
+    function load() { try { return JSON.parse(localStorage.getItem('dialer-log') || '[]'); } catch (e) { return []; } }
+    function save(items) { try { localStorage.setItem('dialer-log', JSON.stringify(items.slice(0, 30))); } catch (e) {} }
+    function render() {
+      const items = load();
+      logEl.innerHTML = '';
+      if (!items.length) { logEl.innerHTML = '<li class="empty">No calls yet.</li>'; return; }
+      items.forEach(it => {
+        const li = document.createElement('li');
+        const when = new Date(it.at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        const dur = it.seconds ? ` · ${Math.floor(it.seconds / 60)}:${String(it.seconds % 60).padStart(2, '0')}` : '';
+        li.innerHTML = `<div><div class="num"></div><div class="meta"></div></div><button>Redial</button>`;
+        li.querySelector('.num').textContent = format(it.number);
+        li.querySelector('.meta').textContent = when + dur;
+        li.querySelector('button').addEventListener('click', () => { display.value = it.number; refresh(); });
+        logEl.appendChild(li);
+      });
+    }
+
+    callBtn.addEventListener('click', () => {
+      const n = clean(display.value);
+      if (n.length < 3) return;
+      active = n; startedAt = Date.now();
+      statusEl.textContent = `Calling ${format(n)}…`;
+      clearInterval(timer);
+      timer = setInterval(() => {
+        const s = Math.floor((Date.now() - startedAt) / 1000);
+        statusEl.textContent = `On call with ${format(active)} · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      }, 1000);
+    });
+    document.getElementById('hangup').addEventListener('click', () => {
+      if (!active) return;
+      clearInterval(timer);
+      const seconds = Math.floor((Date.now() - startedAt) / 1000);
+      save([{ number: active, at: Date.now(), seconds }, ...load()]);
+      statusEl.textContent = `Call ended (${seconds}s)`;
+      active = null; render();
+    });
+    document.getElementById('clear').addEventListener('click', () => { save([]); render(); });
+
+    refresh(); render();
+  </script>
+</body>
+</html>
