@@ -132,7 +132,7 @@ def test_fallback_and_circuit_breaker():
     now = [0.0]
     calls = []
 
-    def fn(model, prompt):
+    def fn(model, _prompt):
         calls.append(model)
         if model == "mid":
             raise RuntimeError("boom")
