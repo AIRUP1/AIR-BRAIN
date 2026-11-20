@@ -26,8 +26,15 @@ h2{font-size:clamp(28px,4vw,56px);line-height:1.1;letter-spacing:-.02em;margin-b
 .card li::before{content:"";position:absolute;left:0;top:1.35vh;width:.45em;height:.45em;background:var(--gold);border-radius:50%}
 .tag{display:inline-block;margin-top:1.6vh;font-size:clamp(11px,1vw,14px);color:var(--gold2);border:1px solid var(--gold);border-radius:99px;padding:.3em .9em}
 .num{width:2.4em;height:2.4em;border-radius:50%;background:var(--gold);color:#111;font-weight:700;display:grid;place-items:center;margin-bottom:1.4vh;font-size:clamp(13px,1.4vw,20px)}
-.title{align-items:flex-start}
-.title .sub{margin-top:3vh;margin-bottom:0}
+.title{align-items:flex-start;background:linear-gradient(90deg,#0e0e10 0%,#0e0e10ee 35%,#0e0e1066 70%,#0e0e1033 100%),url(assets/barberos/storefront.jpg) center/cover,var(--bg)}
+.gallery{display:grid;grid-template-columns:1fr 1.6fr 1fr;gap:2vw;align-items:center;height:56vh}
+.gallery figure{height:100%;border-radius:10px;overflow:hidden;border:1px solid var(--gold);position:relative}
+.gallery img{width:100%;height:100%;object-fit:cover;display:block}
+.gallery figure:last-child img{object-fit:contain;background:#000}
+.gallery figcaption{position:absolute;left:0;right:0;bottom:0;padding:1.2vh 1vw;background:linear-gradient(transparent,#000c);font-size:clamp(11px,1.1vw,15px);color:var(--gold2)}
+.split{display:grid;grid-template-columns:1.2fr 1fr;gap:4vw;align-items:center}
+.split img{max-height:72vh;max-width:100%;justify-self:center;border-radius:10px;border:1px solid var(--gold)}
+@media(max-width:800px){.gallery,.split{grid-template-columns:1fr;height:auto}.gallery figure{height:30vh}}.title .sub{margin-top:3vh;margin-bottom:0}
 .bar{width:90px;height:4px;background:var(--gold);margin-top:4vh}
 #hud{position:fixed;left:0;right:0;bottom:0;height:7vh;display:flex;align-items:center;justify-content:space-between;padding:0 7vw;color:var(--muted);font-size:13px;z-index:5}
 #prog{position:fixed;left:0;bottom:0;height:3px;background:var(--gold);transition:width .4s;z-index:6}
@@ -46,6 +53,7 @@ const cards=(items,n)=>`<div class="grid" style="--n:${n||items.length}">`+items
 const S=(k,t,s,body)=>`<section class="slide"><div class="kicker">${k}</div><h2>${t}</h2><p class="sub">${s}</p>${body}</section>`;
 const slides=[
 `<section class="slide title"><div class="kicker">Slides Studio</div><h1>Barber<span>OS</span></h1><p class="sub">The Connected Barbershop Platform<br>A unified operating system for modern grooming retail.</p><div class="bar"></div></section>`,
+S('Brand in Action','The Shop, Branded and Connected','From the street front to the counter, one consistent premium identity.',`<div class="gallery"><figure><img src="assets/barberos/tools.jpg" alt="Barber tools and brand sign"><figcaption>The craft: tools and signage</figcaption></figure><figure><img src="assets/barberos/storefront.jpg" alt="Barbershop storefront at night"><figcaption>The storefront: street presence</figcaption></figure><figure><img src="assets/barberos/flyer.jpg" alt="Appointment flyer"><figcaption>The campaign: booking flyer</figcaption></figure></div>`),
 S('01 · Platform','One Operating System for the Shop','A unified control layer replacing fragmented tools.',cards([
 ['Operations Hub','Centralized control for bookings, staff schedules, and client profiles, accessible from any device.'],
 ['Commerce Engine','Integrated payments, retail inventory, and digital storefronts driving revenue beyond the chair.'],
@@ -96,7 +104,8 @@ S('12 · Marketing','Content and Scheduling Studio','Turn shop expertise into or
 S('13 · Roadmap','Build the Connected Shop','Three phases from foundation to full experience.',cards([
 {num:1,0:'Phase 1: Foundation',1:'Deploy core booking, scheduling, and client management OS.'},
 {num:1,0:'Phase 2: Commerce',1:'Activate mobile storefront, POS integration, and retail inventory.'},
-{num:1,0:'Phase 3: Experience',1:'Integrate digital signage, environmental lighting, and media control.'}]))
+{num:1,0:'Phase 3: Experience',1:'Integrate digital signage, environmental lighting, and media control.'}])),
+`<section class="slide"><div class="split"><div><div class="kicker">Let's Go</div><h2>Book Your Appointment</h2><p class="sub">A modern barbershop experience, powered by one connected platform.</p><div class="bar"></div></div><img src="assets/barberos/flyer.jpg" alt="Barber IO booking flyer"></div></section>`
 ];
 // normalize object-style cards to arrays
 document.getElementById('deck').innerHTML=slides.join('');
