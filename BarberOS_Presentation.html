@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BarberOS Presentation</title>
+<style>
+:root{--bg:#0e0e10;--panel:#18181c;--line:#2b2b32;--text:#f4f1ea;--muted:#a09c92;--gold:#c9a24b;--gold2:#e8c97a}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+#deck{position:relative;width:100vw;height:100vh}
+.slide{position:absolute;inset:0;padding:6vh 7vw 9vh;display:flex;flex-direction:column;justify-content:center;opacity:0;visibility:hidden;transform:translateX(40px);transition:opacity .45s,transform .45s,visibility .45s;background:radial-gradient(ellipse at 85% 0%,#241d0e 0%,transparent 55%),var(--bg)}
+.slide.active{opacity:1;visibility:visible;transform:none}
+.slide.past{transform:translateX(-40px)}
+.kicker{color:var(--gold);font-size:clamp(11px,1.2vw,15px);letter-spacing:.22em;text-transform:uppercase;margin-bottom:1.6vh}
+h1{font-size:clamp(40px,7.5vw,110px);line-height:1;letter-spacing:-.03em}
+h1 span{color:var(--gold2)}
+h2{font-size:clamp(28px,4vw,56px);line-height:1.1;letter-spacing:-.02em;margin-bottom:1.4vh}
+.sub{color:var(--muted);font-size:clamp(15px,1.8vw,24px);margin-bottom:4.5vh;max-width:62ch}
+.grid{display:grid;gap:2vw;grid-template-columns:repeat(var(--n,3),1fr)}
+.card{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:10px;padding:2.4vh 1.8vw}
+.card h3{font-size:clamp(17px,1.8vw,26px);margin-bottom:1.2vh}
+.card p{color:var(--muted);font-size:clamp(13px,1.35vw,19px);line-height:1.5}
+.card ul{list-style:none}
+.card li{color:var(--muted);font-size:clamp(13px,1.3vw,18px);line-height:1.45;padding:.7vh 0 .7vh 1.2em;position:relative}
+.card li::before{content:"";position:absolute;left:0;top:1.35vh;width:.45em;height:.45em;background:var(--gold);border-radius:50%}
+.tag{display:inline-block;margin-top:1.6vh;font-size:clamp(11px,1vw,14px);color:var(--gold2);border:1px solid var(--gold);border-radius:99px;padding:.3em .9em}
+.num{width:2.4em;height:2.4em;border-radius:50%;background:var(--gold);color:#111;font-weight:700;display:grid;place-items:center;margin-bottom:1.4vh;font-size:clamp(13px,1.4vw,20px)}
+.title{align-items:flex-start}
+.title .sub{margin-top:3vh;margin-bottom:0}
+.bar{width:90px;height:4px;background:var(--gold);margin-top:4vh}
+#hud{position:fixed;left:0;right:0;bottom:0;height:7vh;display:flex;align-items:center;justify-content:space-between;padding:0 7vw;color:var(--muted);font-size:13px;z-index:5}
+#prog{position:fixed;left:0;bottom:0;height:3px;background:var(--gold);transition:width .4s;z-index:6}
+button{background:none;border:1px solid var(--line);color:var(--text);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:16px;margin-left:8px}
+button:hover{border-color:var(--gold);color:var(--gold)}
+@media(max-width:800px){.grid{grid-template-columns:1fr!important;gap:1.2vh}.slide{overflow:auto;justify-content:flex-start;padding-top:5vh}.card{padding:1.4vh 4vw}}
+@media print{html,body{overflow:visible;height:auto}.slide{position:relative;opacity:1;visibility:visible;transform:none;height:100vh;page-break-after:always}#hud,#prog{display:none}}
+</style>
+</head>
+<body>
+<div id="deck"></div>
+<div id="hud"><span id="count"></span><span><button id="prev" aria-label="Previous">←</button><button id="next" aria-label="Next">→</button><button id="fs" aria-label="Fullscreen">⛶</button></span></div>
+<div id="prog"></div>
+<script>
+const cards=(items,n)=>`<div class="grid" style="--n:${n||items.length}">`+items.map((c,i)=>`<div class="card">${c.num?`<div class="num">${i+1}</div>`:''}<h3>${c[0]}</h3>${Array.isArray(c[1])?`<ul>${c[1].map(x=>`<li>${x}</li>`).join('')}</ul>`:`<p>${c[1]}</p>`}${c[2]?`<span class="tag">${c[2]}</span>`:''}</div>`).join('')+`</div>`;
+const S=(k,t,s,body)=>`<section class="slide"><div class="kicker">${k}</div><h2>${t}</h2><p class="sub">${s}</p>${body}</section>`;
+const slides=[
+`<section class="slide title"><div class="kicker">Slides Studio</div><h1>Barber<span>OS</span></h1><p class="sub">The Connected Barbershop Platform<br>A unified operating system for modern grooming retail.</p><div class="bar"></div></section>`,
+S('01 · Platform','One Operating System for the Shop','A unified control layer replacing fragmented tools.',cards([
+['Operations Hub','Centralized control for bookings, staff schedules, and client profiles, accessible from any device.'],
+['Commerce Engine','Integrated payments, retail inventory, and digital storefronts driving revenue beyond the chair.'],
+['Experience Control','Software-driven management of in-shop media, digital signage, and environmental lighting.']])),
+S('02 · Operations','Core Operations, Connected','Streamlining the daily workflows of a modern barbershop.',cards([
+['Booking & Scheduling',['Real-time calendar sync across staff and clients.','Automated waitlists and cancellation backfilling.','Dynamic pricing based on demand and barber tier.','Self-service client portal and mobile app.']],
+['Client Management',['Detailed service history and preference tracking.','Before/after photo gallery per client profile.','Automated re-booking reminders and retention campaigns.','VIP membership and subscription tier management.']],
+['Staff & Performance',['Commission tracking and automated payroll exports.','Individual performance dashboards and utilization metrics.','Granular permission controls and role-based access.','Tip distribution and tax reporting compliance.']]])),
+S('03 · AI','LLM Copilot for the Shop','AI-driven insights, communications, and visual content generation.',cards([
+['Client Communications','Automated, personalized email and SMS marketing campaigns drafted instantly based on client history and shop promotions.','Powered by Gemini 3'],
+['Visual Asset Generation','Generate high-quality digital signage graphics, social media posts, and promotional assets directly from the dashboard.','Powered by DALL-E 3'],
+['Operational Insights','Natural language queries for revenue analysis, inventory forecasting, and staff utilization metrics.','Powered by Gemini 3']])),
+S('04 · Integrations','Integration-Ready by Design','Connecting the physical shop to the digital ecosystem.',cards([
+['Payments','Seamless POS and mobile checkout.'],['Inventory','Real-time stock sync and low-alert triggers.'],['Communications','Automated SMS and email marketing.'],['Signage','Dynamic digital displays and waitboards.']])),
+S('05 · POS','Smart POS, Built Into the Flow','A dedicated point-of-sale layer for services, retail, and memberships.',cards([
+['Unified Checkout','Combine haircuts, beard trims, retail products, and tip into a single, seamless transaction at the counter or the chair.'],
+['Retail & Inventory Sync','Every product scanned at the POS instantly updates central inventory, triggering low-stock alerts when necessary.'],
+['Membership Processing','Automatically recognize VIP clients, apply subscription discounts, and process recurring payments without friction.']])),
+S('06 · Experience','Visual Upgrades That Change the Experience','Software-controlled environmental features.',cards([
+['Configurable Lighting','Sync RGB environmental lighting with shop events, time of day, or specific service modes directly from the dashboard.'],
+['Digital Signage Control','Push brand messaging, barber profiles, and waitlist updates to integrated architectural screens instantly.'],
+['360° Visual Content','Manage and deploy immersive visual content across shop displays to elevate the premium atmosphere.']])),
+S('07 · Commerce','E-Commerce That Extends the Chair','A mobile-first storefront for services, retail, and memberships.',cards([
+['Digital Storefront','Clients can browse and purchase premium grooming products directly from their phone, before or after their appointment.'],
+['Memberships & Subscriptions','Recurring revenue models for VIP cuts, unlimited trims, or monthly product boxes, managed seamlessly.'],
+['In-Shop Pickup','Streamlined fulfillment flow allowing clients to buy online and pick up their products from the shelf during their visit.']])),
+S('08 · Journey','One Customer Journey, Online to In-Chair','A cohesive experience across every touchpoint.',cards([
+{num:1,0:'Discovery & Booking',1:'Client books via mobile app, selects barber, and pre-pays or holds with card.'},
+{num:1,0:'Arrival & Check-In',1:'Automated check-in triggers digital waitboard update and alerts the barber.'},
+{num:1,0:'The Service',1:'Barber accesses client history, preferences, and previous cut photos on tablet.'},
+{num:1,0:'Checkout & Retail',1:'Seamless POS payment, product recommendations, and automated re-booking prompt.'}])),
+S('09 · Orchestration','Bookings, Invoices, and Eliot POS','A unified orchestration layer for scheduling and revenue.',cards([
+['Booking Scheduler App','A frictionless client-facing app that syncs instantly with barber availability, handling deposits, waitlists, and calendar conflicts automatically.'],
+['Invoice Processor','Automated invoice generation for corporate accounts, event grooming, and VIP memberships, with direct reconciliation into the shop ledger.'],
+['Eliot POS Integration Enabler','A dedicated integration layer that connects BarberOS directly to Eliot POS hardware, ensuring seamless payment capture without manual data entry.']])),
+S('10 · AI Concierge','Ask Your Barber AI','An LLM concierge with deep memory for styles and products.',cards([
+['Conversational Concierge','Clients can chat with the shop\'s AI to book appointments, ask about services, or get grooming advice before they arrive.'],
+['Memory-Indexed Styles','The LLM remembers a client\'s past cuts, referencing specific fade lengths, top textures, and reference photos from previous visits.'],
+['Product Recommendations','Based on the client\'s hair type and style history, the AI suggests specific retail products available in the shop\'s inventory.']])),
+S('11 · Design Studio','AI Hairstyle Design Studio','Text-to-photo generation for precise client consultations.',cards([
+['Text & Photo Inputs','Clients or barbers can input a base photo and a text prompt (e.g., "add a mid-drop fade with textured fringe") to generate a realistic preview.'],
+['360-Degree Previews','The studio generates consistent front, left side, right side, and back angles, ensuring the barber and client are completely aligned before cutting.'],
+['Style Library Integration','Approved designs are saved directly to the client\'s profile and the shop\'s public lookbook for future reference.']])),
+S('12 · Marketing','Content and Scheduling Studio','Turn shop expertise into organic marketing reach.',cards([
+['Listicle Blog Writer','An integrated writing tool optimized for barbers. Generate SEO-ready articles like "Top 5 Matte Clays for Textured Hair" or "Best Fade Styles for 2026," automatically featuring the shop\'s retail products.'],
+['Social Content Prompts','The studio suggests daily social media concepts based on shop activity, upcoming holidays, or trending styles generated in the Hairstyle Design Studio.'],
+['Automated Scheduling','Plan, preview, and schedule posts directly to Instagram, TikTok, and the shop\'s digital signage network from a single calendar view.']])),
+S('13 · Roadmap','Build the Connected Shop','Three phases from foundation to full experience.',cards([
+{num:1,0:'Phase 1: Foundation',1:'Deploy core booking, scheduling, and client management OS.'},
+{num:1,0:'Phase 2: Commerce',1:'Activate mobile storefront, POS integration, and retail inventory.'},
+{num:1,0:'Phase 3: Experience',1:'Integrate digital signage, environmental lighting, and media control.'}]))
+];
+// normalize object-style cards to arrays
+document.getElementById('deck').innerHTML=slides.join('');
+const els=[...document.querySelectorAll('.slide')];let i=0;
+function go(n){i=Math.max(0,Math.min(els.length-1,n));els.forEach((e,k)=>{e.classList.toggle('active',k===i);e.classList.toggle('past',k<i)});
+document.getElementById('count').textContent=`BarberOS · ${i+1} / ${els.length}`;document.getElementById('prog').style.width=((i+1)/els.length*100)+'%';history.replaceState(null,'','#'+(i+1))}
+document.addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' ','Enter'].includes(e.key)){e.preventDefault();go(i+1)}else if(['ArrowLeft','PageUp','Backspace'].includes(e.key)){e.preventDefault();go(i-1)}else if(e.key==='Home')go(0);else if(e.key==='End')go(els.length-1);else if(e.key==='f')document.documentElement.requestFullscreen?.()});
+document.getElementById('next').onclick=()=>go(i+1);document.getElementById('prev').onclick=()=>go(i-1);
+document.getElementById('fs').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.();
+let x0=null;document.addEventListener('touchstart',e=>x0=e.touches[0].clientX);document.addEventListener('touchend',e=>{if(x0===null)return;const d=e.changedTouches[0].clientX-x0;if(Math.abs(d)>50)go(i+(d<0?1:-1));x0=null});
+go((parseInt(location.hash.slice(1))||1)-1);
+</script>
+</body>
+</html>
