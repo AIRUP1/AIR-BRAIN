@@ -26,7 +26,7 @@ flowchart LR
 
     API <-->|Signed webhook events| Integrations[Approved integrations\nGitHub · Retell · Canva · email · partner tools]
     CI[GitHub repository & CI] -->|Build / test / deploy| API
-    Observability[Logs · metrics · alerts] <-- API
+    API --> Observability[Logs · metrics · alerts]
 ```
 
 ## 2. Component model
