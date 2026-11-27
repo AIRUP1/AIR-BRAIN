@@ -1,0 +1,22 @@
+{
+  "schema_version": "1",
+  "name": "lead_research",
+  "version": "1.0.0",
+  "description": "Find, scrape, save and prequalify business leads for a goal, then return a ranked report and a brief.",
+  "nodes": [
+    {"id": "start", "type": "input", "fields": [
+      {"name": "task", "type": "string", "description": "What kind of leads to find"},
+      {"name": "max_iterations", "type": "number", "required": false, "default": 40}]},
+    {"id": "research", "type": "tool", "tool": "lead.run",
+     "args": {"goal": "{{start.task}}", "max_iterations": "{{start.max_iterations}}"}},
+    {"id": "report", "type": "tool", "tool": "lead.report", "args": {"min_score": 0}},
+    {"id": "brief", "type": "llm", "on_error": "continue",
+     "model": {"complexity": "simple", "latency": "fast", "cost": "optimize_cost"},
+     "prompt": "In five bullets, summarise what these leads mean for the sales team and which to call first.\n\n{{report.markdown}}"},
+    {"id": "done", "type": "output", "fields": {"summary": "{{research.summary}}", "report": "{{report.markdown}}"}}
+  ],
+  "edges": [
+    {"source": "start", "target": "research"}, {"source": "research", "target": "report"},
+    {"source": "report", "target": "brief"}, {"source": "report", "target": "done"}
+  ]
+}

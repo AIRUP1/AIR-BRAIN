@@ -1,0 +1,12 @@
+{
+  "schema_version": "1",
+  "name": "general",
+  "version": "1.0.0",
+  "description": "Fallback: answer a general question with the best-fit model.",
+  "nodes": [
+    {"id": "start", "type": "input", "fields": [{"name": "task", "type": "string"}]},
+    {"id": "answer", "type": "llm", "prompt": "{{start.task}}", "model": {"complexity": "moderate"}},
+    {"id": "done", "type": "output", "fields": {"answer": "{{answer.text}}"}}
+  ],
+  "edges": [{"source": "start", "target": "answer"}, {"source": "answer", "target": "done"}]
+}
