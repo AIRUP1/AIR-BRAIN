@@ -97,6 +97,5 @@ def get_settings() -> Settings:
         cors_origins=origins,
         github_webhook_secret=os.getenv("AIR_AGENTS_GITHUB_WEBHOOK_SECRET") or None,
         workspace_ui_session_secret=_optional_session_secret(os.getenv("AIR_AGENTS_WORKSPACE_UI_SESSION_SECRET")),
-        enable_public_intake=os.getenv("AIR_AGENTS_ENABLE_PUBLIC_INTAKE", "false").lower()
-        in {"1", "true", "yes"},
+        enable_public_intake=os.getenv("AIR_AGENTS_ENABLE_PUBLIC_INTAKE", "false").lower() in {"1", "true", "yes"},
     )

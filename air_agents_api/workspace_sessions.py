@@ -62,7 +62,11 @@ def verify_workspace_session(token: str | None, secret: str, *, now: int | None 
     role = payload.get("role")
     csrf_token = payload.get("csrf")
     expires_at = payload.get("exp")
-    if role not in {"viewer", "operator", "admin"} or not isinstance(csrf_token, str) or not isinstance(expires_at, int):
+    if (
+        role not in {"viewer", "operator", "admin"}
+        or not isinstance(csrf_token, str)
+        or not isinstance(expires_at, int)
+    ):
         return None
     if expires_at <= int(now if now is not None else time.time()):
         return None

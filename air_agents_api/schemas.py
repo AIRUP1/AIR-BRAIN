@@ -146,7 +146,9 @@ class LendingCaseCreate(APIModel):
     email: EmailStr
     funding_goal: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=1_000)] = None
     requested_amount: Annotated[int | None, Field(ge=0, le=100_000_000)] = None
-    readiness_status: Literal["intake", "documents_requested", "package_ready", "partner_follow_up", "closed", "not_proceeding"] = "intake"
+    readiness_status: Literal[
+        "intake", "documents_requested", "package_ready", "partner_follow_up", "closed", "not_proceeding"
+    ] = "intake"
     documents_status: Literal["not_requested", "requested", "partial", "complete"] = "not_requested"
     authorized_partner_contact: bool = False
     notes: OptionalText = None
@@ -155,7 +157,10 @@ class LendingCaseCreate(APIModel):
 class LendingCaseUpdate(APIModel):
     funding_goal: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=1_000)] = None
     requested_amount: Annotated[int | None, Field(ge=0, le=100_000_000)] = None
-    readiness_status: Literal["intake", "documents_requested", "package_ready", "partner_follow_up", "closed", "not_proceeding"] | None = None
+    readiness_status: (
+        Literal["intake", "documents_requested", "package_ready", "partner_follow_up", "closed", "not_proceeding"]
+        | None
+    ) = None
     documents_status: Literal["not_requested", "requested", "partial", "complete"] | None = None
     authorized_partner_contact: bool | None = None
     notes: OptionalText = None
@@ -181,7 +186,9 @@ class CampaignBriefCreate(APIModel):
     objective: LongText
     audience: LongText
     primary_message: LongText
-    channels: list[Literal["web", "email", "instagram", "tiktok", "youtube", "linkedin", "paid_media", "other"]] = Field(default_factory=list, max_length=12)
+    channels: list[Literal["web", "email", "instagram", "tiktok", "youtube", "linkedin", "paid_media", "other"]] = (
+        Field(default_factory=list, max_length=12)
+    )
     visual_direction: OptionalText = None
     call_to_action: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=500)] = None
     status: Literal["draft", "review", "approved", "in_production", "complete", "archived"] = "draft"
@@ -191,7 +198,9 @@ class CampaignBriefUpdate(APIModel):
     objective: LongText | None = None
     audience: LongText | None = None
     primary_message: LongText | None = None
-    channels: list[Literal["web", "email", "instagram", "tiktok", "youtube", "linkedin", "paid_media", "other"]] | None = Field(default=None, max_length=12)
+    channels: (
+        list[Literal["web", "email", "instagram", "tiktok", "youtube", "linkedin", "paid_media", "other"]] | None
+    ) = Field(default=None, max_length=12)
     visual_direction: OptionalText = None
     call_to_action: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=500)] = None
     status: Literal["draft", "review", "approved", "in_production", "complete", "archived"] | None = None
@@ -228,7 +237,9 @@ class InvestorBlueprintCreate(APIModel):
 class InvestorBlueprintUpdate(APIModel):
     title: ShortText | None = None
     as_of_date: date | None = None
-    currency: Annotated[str | None, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Z]{3}$")] = None
+    currency: Annotated[str | None, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Z]{3}$")] = (
+        None
+    )
 
 
 class InvestorBlueprintResponse(APIModel):

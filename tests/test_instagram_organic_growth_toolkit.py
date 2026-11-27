@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
-
 from instagram_organic_growth_toolkit import (
     AccountSnapshot,
     InstagramGraphClient,
@@ -54,9 +53,7 @@ def test_report_uses_reach_before_follower_fallback():
         make_post("fallback-post", "2026-09-15T17:00:00+00:00", likes=30, reach=0),
     ]
 
-    report = InstagramGrowthAnalyzer(account, posts).build_report(
-        niche="home fitness", keywords=["strength training"]
-    )
+    report = InstagramGrowthAnalyzer(account, posts).build_report(niche="home fitness", keywords=["strength training"])
 
     assert report["performance_summary"]["reach_available_for_posts"] == 1
     assert report["performance_summary"]["follower_fallback_posts"] == 1
@@ -144,9 +141,7 @@ def test_graph_client_reads_only_expected_account_fields():
 
 
 def test_graph_client_raises_sanitized_api_error():
-    session = FakeSession(
-        [FakeResponse({"error": {"message": "Permission denied", "code": 10}}, 400)]
-    )
+    session = FakeSession([FakeResponse({"error": {"message": "Permission denied", "code": 10}}, 400)])
     client = InstagramGraphClient(
         access_token="token",
         instagram_user_id="1789",

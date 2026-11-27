@@ -335,8 +335,12 @@ class Repository:
         with self.connection() as connection:
             return {
                 "new_leads": connection.execute("SELECT COUNT(*) FROM leads WHERE status = 'new'").fetchone()[0],
-                "active_partners": connection.execute("SELECT COUNT(*) FROM partners WHERE status = 'active'").fetchone()[0],
-                "open_tasks": connection.execute("SELECT COUNT(*) FROM tasks WHERE status != 'completed'").fetchone()[0],
+                "active_partners": connection.execute(
+                    "SELECT COUNT(*) FROM partners WHERE status = 'active'"
+                ).fetchone()[0],
+                "open_tasks": connection.execute("SELECT COUNT(*) FROM tasks WHERE status != 'completed'").fetchone()[
+                    0
+                ],
                 "lending_cases_in_progress": connection.execute(
                     "SELECT COUNT(*) FROM lending_cases WHERE readiness_status NOT IN ('closed', 'not_proceeding')"
                 ).fetchone()[0],
@@ -372,9 +376,7 @@ class Repository:
         assert blueprint is not None
         return blueprint
 
-    def update_investor_blueprint(
-        self, blueprint_id: str, values: dict[str, Any]
-    ) -> dict[str, Any] | None:
+    def update_investor_blueprint(self, blueprint_id: str, values: dict[str, Any]) -> dict[str, Any] | None:
         if not values:
             return self.get_investor_blueprint(blueprint_id)
         values["updated_at"] = utc_now()
@@ -426,9 +428,7 @@ class Repository:
         assert kpi is not None
         return kpi
 
-    def update_investor_kpi(
-        self, blueprint_id: str, kpi_id: str, values: dict[str, Any]
-    ) -> dict[str, Any] | None:
+    def update_investor_kpi(self, blueprint_id: str, kpi_id: str, values: dict[str, Any]) -> dict[str, Any] | None:
         if not values:
             return self.get_investor_kpi(blueprint_id, kpi_id)
         values["updated_at"] = utc_now()
