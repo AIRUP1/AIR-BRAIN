@@ -40,6 +40,7 @@ EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 PHONE_RE = re.compile(r"(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b")
 JUNK_EMAIL_SUFFIX = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".css", ".js")
 MAX_TEXT = 60_000
+FIRECRAWL_API = "https://api.firecrawl.dev/v2"  # v1 stops working on 2026-12-10 (HTTP 410)
 
 
 class ScrapeBlocked(Exception):
@@ -219,7 +220,7 @@ class Scraper:
     def _firecrawl(self, url: str) -> Optional[ScrapeResult]:
         try:
             resp = httpx.post(
-                "https://api.firecrawl.dev/v1/scrape",
+                f"{FIRECRAWL_API}/scrape",
                 timeout=60,
                 headers={"Authorization": f"Bearer {self.firecrawl_key}"},
                 json={"url": url, "formats": ["markdown", "html"], "onlyMainContent": False},
@@ -241,13 +242,12 @@ class Scraper:
         if not self.firecrawl_key:
             raise ScrapeBlocked("web search needs FIRECRAWL_API_KEY; otherwise pass seed URLs to scrape_url")
         resp = httpx.post(
-            "https://api.firecrawl.dev/v1/search",
+            f"{FIRECRAWL_API}/search",
             timeout=60,
             headers={"Authorization": f"Bearer {self.firecrawl_key}"},
             json={"query": query, "limit": limit},
         )
         resp.raise_for_status()
-        return [
-            {"url": r.get("url"), "title": r.get("title"), "description": r.get("description")}
-            for r in resp.json().get("data", [])
-        ]
+        data = resp.json().get("data", {})
+        results = data.get("web", []) if isinstance(data, dict) else data  # v2: data.web; v1 returned a bare list
+        return [{"url": r.get("url"), "title": r.get("title"), "description": r.get("description")} for r in results]

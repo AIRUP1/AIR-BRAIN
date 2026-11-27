@@ -166,3 +166,28 @@ def test_llm_tools_schema_and_dispatch(tmp_path):
     )
     assert "acmesolar.com" in str(ok)
     assert "BLOCKED" in str(tools["scrape_url"].call({"url": "https://linkedin.com/in/x"}))
+
+
+def test_firecrawl_uses_v2_and_parses_search_web(store, monkeypatch):
+    seen = []
+
+    def fake_post(url, **_kwargs):
+        seen.append(url)
+        if url.endswith("/search"):
+            body = {"success": True, "data": {"web": [{"url": "https://a.com", "title": "A", "description": "d"}]}}
+        else:
+            body = {
+                "success": True,
+                "data": {
+                    "html": "<html><title>T</title><body>" + "word " * 100 + "</body></html>",
+                    "markdown": "word " * 100 + " sales@a.com",
+                },
+            }
+        return httpx.Response(200, json=body, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(scraper_mod.httpx, "post", fake_post)
+    s = Scraper(store, firecrawl_key="fc-test")
+    assert s.search("q", 3) == [{"url": "https://a.com", "title": "A", "description": "d"}]
+    page = s._firecrawl("https://a.com")
+    assert page.source == "firecrawl" and "sales@a.com" in page.emails
+    assert all("/v2/" in u and "/v1/" not in u for u in seen)
