@@ -1,0 +1,11 @@
+{
+  "name": "air-brain-plugins",
+  "owner": { "name": "AIR AGENTS" },
+  "plugins": [
+    {
+      "name": "air-agents-helper",
+      "source": "./plugins/air-agents-helper",
+      "description": "Helpers for developing the AIR AGENTS FastAPI service: tests, route scaffolding, compliance review."
+    }
+  ]
+}
